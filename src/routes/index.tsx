@@ -40,7 +40,6 @@ function Index() {
     <div className="min-h-screen bg-background">
       <SiteHeader />
       <main>
-        <h1 className="sr-only">وجباتي - اشتراكات وجبات صحية في الطائف</h1>
         <Hero />
         <Features />
         <BmrCalculator onSuggest={setPlanId} />
