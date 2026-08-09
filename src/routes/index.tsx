@@ -1,24 +1,55 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
+import { Toaster } from "@/components/ui/sonner";
+import { SiteHeader } from "@/components/site/SiteHeader";
+import { Hero } from "@/components/site/Hero";
+import { Features } from "@/components/site/Features";
+import { BmrCalculator } from "@/components/site/BmrCalculator";
+import { PlansShowcase } from "@/components/site/PlansShowcase";
+import { HowItWorks } from "@/components/site/HowItWorks";
+import { PricingBuilder } from "@/components/site/PricingBuilder";
+import { SiteFooter } from "@/components/site/SiteFooter";
+import { WhatsAppFab } from "@/components/site/WhatsAppFab";
 
-// No head() here: the home route inherits title/description/og/twitter from
-// __root.tsx, and ships no og:image so serve-time hosting can inject the
-// project's social preview (explicit og:image or latest screenshot).
 export const Route = createFileRoute("/")({
+  head: () => ({
+    meta: [
+      { title: "وجباتي - وجبات صحية بسعرات محسوبة في الطائف" },
+      {
+        name: "description",
+        content:
+          "اشترك في وجبات صحية تُحضَّر يومياً في الطائف: سعرات محسوبة، خمس باقات غذائية، وتوصيل يومي إلى بابك.",
+      },
+      { property: "og:title", content: "وجباتي - وجبات صحية بسعرات محسوبة في الطائف" },
+      {
+        property: "og:description",
+        content:
+          "خمس باقات غذائية، حاسبة سعرات ذكية، وأسعار مرنة تبدأ من ٣٠ ريال لليوم مع توصيل يومي في الطائف.",
+      },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
+    ],
+  }),
   component: Index,
 });
 
-// IMPORTANT: Replace this placeholder. See ./README.md for routing conventions.
 function Index() {
+  const [planId, setPlanId] = useState("lowcarb");
+
   return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
-      />
+    <div className="min-h-screen bg-background">
+      <SiteHeader />
+      <main>
+        <Hero />
+        <Features />
+        <BmrCalculator onSuggest={setPlanId} />
+        <PlansShowcase onChoose={setPlanId} />
+        <HowItWorks />
+        <PricingBuilder planId={planId} onPlanChange={setPlanId} />
+      </main>
+      <SiteFooter />
+      <WhatsAppFab />
+      <Toaster position="top-center" />
     </div>
   );
 }
