@@ -5,13 +5,13 @@ import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { arabicNumber } from "@/lib/meals";
 
-type SuccessSearch = { tx?: string; amount?: number; name?: string };
+type SuccessSearch = { tx: string; amount: number; name: string };
 
 export const Route = createFileRoute("/success")({
   validateSearch: (search: Record<string, unknown>): SuccessSearch => ({
-    tx: typeof search['tx'] === "string" ? (search['tx'] as string) : undefined,
-    amount: Number.isFinite(Number(search['amount'])) ? Number(search['amount']) : undefined,
-    name: typeof search['name'] === "string" ? (search['name'] as string) : undefined,
+    tx: typeof search['tx'] === "string" ? (search['tx'] as string) : "",
+    amount: Number.isFinite(Number(search['amount'])) ? Number(search['amount']) : 0,
+    name: typeof search['name'] === "string" ? (search['name'] as string) : "",
   }),
   head: () => ({
     meta: [
