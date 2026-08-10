@@ -1,22 +1,23 @@
-import { useMemo, useState } from "react";
-import { Loader2, ShoppingBag } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
+import { CreditCard } from "lucide-react";
 import { z } from "zod";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { supabase } from "@/integrations/supabase/client";
 import { arabicNumber, durations, getPrice, mealCounts, plans } from "@/lib/meals";
+import {
+  addDays,
+  mealTypeOptions,
+  neighborhoods,
+  saveDraft,
+  timeSlots,
+  weekDays,
+} from "@/lib/order";
 
-const checkoutSchema = z.object({
+const detailsSchema = z.object({
   full_name: z.string().trim().min(3, "الاسم قصير جداً").max(100, "الاسم طويل جداً"),
   whatsapp: z
     .string()
@@ -32,44 +33,69 @@ type Props = {
   onPlanChange: (planId: string) => void;
 };
 
+const today = () => new Date().toISOString().slice(0, 10);
+
 export function PricingBuilder({ planId, onPlanChange }: Props) {
+  const navigate = useNavigate();
   const [meals, setMeals] = useState<number>(2);
   const [days, setDays] = useState<number>(20);
-  const [open, setOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [mealTypes, setMealTypes] = useState<string[]>(["lunch", "dinner"]);
+  const [deliveryDays, setDeliveryDays] = useState<string[]>([
+    "sun",
+    "mon",
+    "tue",
+    "wed",
+    "thu",
+  ]);
+  const [neighborhood, setNeighborhood] = useState<string>(neighborhoods[0]);
+  const [timeSlot, setTimeSlot] = useState<string>(timeSlots[0].id);
+  const [startDate, setStartDate] = useState<string>(today());
   const [form, setForm] = useState({ full_name: "", whatsapp: "", address: "" });
 
   const plan = plans.find((p) => p.id === planId) ?? plans[0]!;
   const price = useMemo(() => getPrice(plan.id, meals, days), [plan.id, meals, days]);
   const perDay = days > 0 ? Math.round(price / days) : 0;
+  const endDate = useMemo(() => addDays(startDate, Math.max(days - 1, 0)), [startDate, days]);
 
-  const submit = async () => {
-    const parsed = checkoutSchema.safeParse(form);
+  useEffect(() => {
+    setMealTypes((prev) => (prev.length === meals ? prev : mealTypeOptions.slice(0, meals).map((m) => m.id)));
+  }, [meals]);
+
+  const toggle = (list: string[], value: string) =>
+    list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
+
+  const proceed = () => {
+    if (mealTypes.length !== meals) {
+      toast.error(`اختر ${arabicNumber(meals)} نوع وجبة بحسب عدد الوجبات اليومية`);
+      return;
+    }
+    if (deliveryDays.length === 0) {
+      toast.error("اختر أيام التوصيل");
+      return;
+    }
+    const parsed = detailsSchema.safeParse(form);
     if (!parsed.success) {
       toast.error(parsed.error.issues[0]?.message ?? "تحقق من البيانات");
       return;
     }
-    setSaving(true);
-    const { error } = await supabase.from("subscriptions").insert({
-      full_name: parsed.data.full_name,
-      whatsapp: parsed.data.whatsapp,
-      city: "الطائف",
-      address: parsed.data.address,
+
+    saveDraft({
       plan_id: plan.id,
       plan_name: plan.name,
       meals_per_day: meals,
       duration_days: days,
       total_price: price,
+      meal_types: mealTypes,
+      delivery_days: deliveryDays,
+      neighborhood,
+      time_slot: timeSlot,
+      start_date: startDate,
+      end_date: endDate,
+      full_name: parsed.data.full_name,
+      whatsapp: parsed.data.whatsapp,
+      address: parsed.data.address,
     });
-    setSaving(false);
-
-    if (error) {
-      toast.error("تعذّر إرسال الطلب، حاول مرة أخرى");
-      return;
-    }
-    toast.success("تم استلام طلبك! سنتواصل معك على الواتساب لتأكيد الاشتراك.");
-    setOpen(false);
-    setForm({ full_name: "", whatsapp: "", address: "" });
+    navigate({ to: "/checkout" });
   };
 
   return (
@@ -77,7 +103,7 @@ export function PricingBuilder({ planId, onPlanChange }: Props) {
       <div className="mx-auto max-w-2xl text-center">
         <h2 className="font-display text-3xl font-black sm:text-4xl">ابنِ اشتراكك واحسب سعرك</h2>
         <p className="mt-4 text-muted-foreground">
-          اختر الباقة وعدد الوجبات ومدة الاشتراك، وسيتحدث السعر فوراً.
+          اختر الباقة والوجبات وأيام التوصيل والحي والموعد، ثم أدخل بياناتك وانتقل للدفع.
         </p>
       </div>
 
@@ -114,6 +140,20 @@ export function PricingBuilder({ planId, onPlanChange }: Props) {
             </div>
           </Group>
 
+          <Group title={`أنواع الوجبات (اختر ${arabicNumber(meals)})`}>
+            <div className="grid grid-cols-3 gap-3">
+              {mealTypeOptions.map((m) => (
+                <Chip
+                  key={m.id}
+                  active={mealTypes.includes(m.id)}
+                  onClick={() => setMealTypes(toggle(mealTypes, m.id))}
+                >
+                  {m.label}
+                </Chip>
+              ))}
+            </div>
+          </Group>
+
           <Group title="مدة الاشتراك">
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               {durations.map((d) => (
@@ -121,6 +161,105 @@ export function PricingBuilder({ planId, onPlanChange }: Props) {
                   {arabicNumber(d)} {d === 1 ? "يوم" : "أيام"}
                 </Chip>
               ))}
+            </div>
+          </Group>
+
+          <Group title="أيام التوصيل">
+            <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
+              {weekDays.map((d) => (
+                <Chip
+                  key={d.id}
+                  active={deliveryDays.includes(d.id)}
+                  onClick={() => setDeliveryDays(toggle(deliveryDays, d.id))}
+                >
+                  {d.label}
+                </Chip>
+              ))}
+            </div>
+          </Group>
+
+          <Group title="حي التوصيل في الطائف">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <select
+                value={neighborhood}
+                onChange={(e) => setNeighborhood(e.target.value)}
+                className="h-12 rounded-2xl border border-border bg-background px-4 font-display font-bold"
+                aria-label="حي التوصيل"
+              >
+                {neighborhoods.map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={timeSlot}
+                onChange={(e) => setTimeSlot(e.target.value)}
+                className="h-12 rounded-2xl border border-border bg-background px-4 font-display font-bold"
+                aria-label="موعد التوصيل"
+              >
+                {timeSlots.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </Group>
+
+          <Group title="تاريخ البداية والنهاية">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="start_date">تاريخ البداية</Label>
+                <Input
+                  id="start_date"
+                  type="date"
+                  value={startDate}
+                  min={today()}
+                  onChange={(e) => setStartDate(e.target.value || today())}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="end_date">تاريخ النهاية</Label>
+                <Input id="end_date" value={endDate} readOnly className="bg-muted" />
+              </div>
+            </div>
+          </Group>
+
+          <Group title="بياناتك الشخصية">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="full_name">الاسم الكامل</Label>
+                <Input
+                  id="full_name"
+                  value={form.full_name}
+                  onChange={(e) => setForm({ ...form, full_name: e.target.value })}
+                  maxLength={100}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="whatsapp">رقم الجوال / الواتساب</Label>
+                <Input
+                  id="whatsapp"
+                  inputMode="tel"
+                  dir="ltr"
+                  value={form.whatsapp}
+                  onChange={(e) => setForm({ ...form, whatsapp: e.target.value })}
+                  maxLength={20}
+                  placeholder="05xxxxxxxx"
+                />
+              </div>
+              <div className="space-y-2 sm:col-span-2">
+                <Label htmlFor="address">العنوان التفصيلي</Label>
+                <Textarea
+                  id="address"
+                  rows={3}
+                  value={form.address}
+                  onChange={(e) => setForm({ ...form, address: e.target.value })}
+                  maxLength={500}
+                  placeholder="الحي، الشارع، رقم المبنى، أقرب معلم"
+                />
+              </div>
             </div>
           </Group>
         </div>
@@ -138,84 +277,25 @@ export function PricingBuilder({ planId, onPlanChange }: Props) {
             <Row label="الباقة" value={plan.name} />
             <Row label="الوجبات اليومية" value={`${arabicNumber(meals)}`} />
             <Row label="المدة" value={`${arabicNumber(days)} يوم`} />
+            <Row label="الحي" value={neighborhood} />
+            <Row label="أيام التوصيل" value={`${arabicNumber(deliveryDays.length)} أيام`} />
             <Row label="التكلفة اليومية" value={`${arabicNumber(perDay)} ريال`} />
           </ul>
 
           <Button
             size="lg"
             variant="secondary"
-            onClick={() => setOpen(true)}
+            onClick={proceed}
             className="mt-8 w-full rounded-full font-display text-base font-bold"
           >
-            <ShoppingBag className="size-5" />
-            متابعة الطلب
+            <CreditCard className="size-5" />
+            المتابعة إلى الدفع
           </Button>
           <p className="mt-3 text-center text-xs text-primary-foreground/60">
             التوصيل داخل مدينة الطائف
           </p>
         </aside>
       </div>
-
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="text-right sm:max-w-lg">
-          <DialogHeader className="text-right">
-            <DialogTitle className="font-display text-2xl font-black">إتمام الاشتراك</DialogTitle>
-            <DialogDescription>
-              {plan.name} · {arabicNumber(meals)} وجبات · {arabicNumber(days)} يوم ·{" "}
-              {arabicNumber(price)} ريال
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="full_name">الاسم الكامل</Label>
-              <Input
-                id="full_name"
-                value={form.full_name}
-                onChange={(e) => setForm({ ...form, full_name: e.target.value })}
-                maxLength={100}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="whatsapp">رقم الواتساب</Label>
-              <Input
-                id="whatsapp"
-                inputMode="tel"
-                dir="ltr"
-                value={form.whatsapp}
-                onChange={(e) => setForm({ ...form, whatsapp: e.target.value })}
-                maxLength={20}
-                placeholder="05xxxxxxxx"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="city">مدينة التوصيل</Label>
-              <Input id="city" value="الطائف" readOnly className="bg-muted" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="address">العنوان التفصيلي</Label>
-              <Textarea
-                id="address"
-                rows={3}
-                value={form.address}
-                onChange={(e) => setForm({ ...form, address: e.target.value })}
-                maxLength={500}
-                placeholder="الحي، الشارع، رقم المبنى، أقرب معلم"
-              />
-            </div>
-
-            <Button
-              onClick={submit}
-              disabled={saving}
-              size="lg"
-              className="w-full rounded-full font-display text-base font-bold"
-            >
-              {saving ? <Loader2 className="size-5 animate-spin" /> : null}
-              تأكيد الطلب
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </section>
   );
 }
