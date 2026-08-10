@@ -19,42 +19,69 @@ export type Database = {
           address: string
           city: string
           created_at: string
+          delivery_days: string[]
           duration_days: number
+          end_date: string | null
           full_name: string
           id: string
+          meal_types: string[]
           meals_per_day: number
+          neighborhood: string | null
           notes: string | null
+          payment_method: string | null
+          payment_status: string
           plan_id: string
           plan_name: string
+          start_date: string | null
+          time_slot: string | null
           total_price: number
+          transaction_id: string | null
           whatsapp: string
         }
         Insert: {
           address: string
           city?: string
           created_at?: string
+          delivery_days?: string[]
           duration_days: number
+          end_date?: string | null
           full_name: string
           id?: string
+          meal_types?: string[]
           meals_per_day: number
+          neighborhood?: string | null
           notes?: string | null
+          payment_method?: string | null
+          payment_status?: string
           plan_id: string
           plan_name: string
+          start_date?: string | null
+          time_slot?: string | null
           total_price: number
+          transaction_id?: string | null
           whatsapp: string
         }
         Update: {
           address?: string
           city?: string
           created_at?: string
+          delivery_days?: string[]
           duration_days?: number
+          end_date?: string | null
           full_name?: string
           id?: string
+          meal_types?: string[]
           meals_per_day?: number
+          neighborhood?: string | null
           notes?: string | null
+          payment_method?: string | null
+          payment_status?: string
           plan_id?: string
           plan_name?: string
+          start_date?: string | null
+          time_slot?: string | null
           total_price?: number
+          transaction_id?: string | null
           whatsapp?: string
         }
         Relationships: []
