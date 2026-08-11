@@ -102,6 +102,7 @@ function CheckoutPage() {
         body: JSON.stringify({
           amount: draft.total_price,
           paymentMethod: method,
+          transactionId: transaction_id,
           customer: {
             name: draft.full_name,
             phone: draft.whatsapp,
@@ -113,6 +114,7 @@ function CheckoutPage() {
       const data = (await res.json().catch(() => ({}))) as {
         paymentToken?: string;
         iframeId?: string | null;
+        iframeUrl?: string | null;
         error?: string;
       };
 
@@ -120,13 +122,13 @@ function CheckoutPage() {
         console.error("create-payment error:", data.error || res.status);
         throw new Error(data.error || `فشل الطلب (HTTP ${res.status})`);
       }
-      if (!data.paymentToken || !data.iframeId) {
+      if (!data.paymentToken || !data.iframeUrl) {
         console.error("create-payment missing fields:", data);
-        throw new Error("لم يتم استلام paymentToken أو iframeId من السيرفر");
+        throw new Error("لم يتم استلام paymentToken أو iframeUrl من السيرفر");
       }
 
       clearDraft();
-      window.location.href = `https://accept.paymob.com/api/acceptance/iframes/${data.iframeId}?payment_token=${data.paymentToken}`;
+      window.location.href = data.iframeUrl;
       return;
     } catch (err) {
       setPaying(false);
