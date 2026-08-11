@@ -67,7 +67,9 @@ export const handler = async (event) => {
   }
 
   if (!txObj) {
-    // Reconstruct a flat object from query params (redirect-style callback)
+    // Reconstruct a flat object from query params (GET redirect-style callback).
+    // Note: the GET redirect uses `id` and `order_id` (flat), while the POST callback
+    // uses `obj.id` and `obj.order.id` (nested) — different key shapes for the same data.
     txObj = {
       amount_cents: params.amount_cents,
       created_at: params.created_at,
@@ -82,7 +84,7 @@ export const handler = async (event) => {
       is_refunded: params.is_refunded,
       is_standalone_payment: params.is_standalone_payment,
       is_voided: params.is_voided,
-      order: { id: params.order },
+      order: { id: params.order_id },
       owner: params.owner,
       pending: params.pending,
       source_data: {
