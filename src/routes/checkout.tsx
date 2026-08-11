@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { ArrowRight, CreditCard, Loader2, Lock, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
@@ -45,7 +45,6 @@ export const Route = createFileRoute("/checkout")({
 });
 
 function CheckoutPage() {
-  const navigate = useNavigate();
   const [draft, setDraft] = useState<OrderDraft | null>(null);
   const [ready, setReady] = useState(false);
   const [method, setMethod] = useState<string>("mada");
@@ -59,25 +58,7 @@ function CheckoutPage() {
 
   const pay = async () => {
     if (!draft) return;
-    if (method !== "apple_pay") {
-      const digits = card.number.replace(/\D/g, "");
-      if (digits.length < 16) {
-        toast.error("رقم البطاقة غير صحيح");
-        return;
-      }
-      if (!/^\d{2}\/\d{2}$/.test(card.expiry.trim())) {
-        toast.error("تاريخ الانتهاء غير صحيح (MM/YY)");
-        return;
-      }
-      if (card.cvc.replace(/\D/g, "").length < 3) {
-        toast.error("رمز التحقق غير صحيح");
-        return;
-      }
-    }
-
     setPaying(true);
-    // محاكاة معالجة الدفع
-    await new Promise((r) => setTimeout(r, 1400));
     const transaction_id = makeTransactionId();
 
     const { error } = await supabase.from("subscriptions").insert({
@@ -97,12 +78,12 @@ function CheckoutPage() {
       duration_days: draft.duration_days,
       total_price: draft.total_price,
       payment_method: method,
-      payment_status: "paid",
+      payment_status: "pending",
       transaction_id,
     });
-    setPaying(false);
 
     if (error) {
+      setPaying(false);
       toast.error("تعذّر إتمام العملية، حاول مرة أخرى");
       return;
     }
@@ -113,11 +94,35 @@ function CheckoutPage() {
       payment_method: method,
       paid_at: new Date().toISOString(),
     });
-    clearDraft();
-    navigate({
-      to: "/success",
-      search: { tx: transaction_id, amount: draft.total_price, name: draft.full_name },
-    });
+
+    try {
+      const res = await fetch("/.netlify/functions/create-payment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount: draft.total_price,
+          paymentMethod: method,
+          customer: {
+            name: draft.full_name,
+            phone: draft.whatsapp,
+            address: draft.address,
+            city: "Taif",
+          },
+        }),
+      });
+      if (!res.ok) throw new Error("payment init failed");
+      const { paymentToken, iframeId } = (await res.json()) as {
+        paymentToken?: string;
+        iframeId?: string | null;
+      };
+      if (!paymentToken || !iframeId) throw new Error("missing payment token");
+      clearDraft();
+      window.location.href = `https://accept.paymob.com/api/acceptance/iframes/${iframeId}?payment_token=${paymentToken}`;
+      return;
+    } catch {
+      setPaying(false);
+      toast.error("تعذّر بدء عملية الدفع، تأكد من إعدادات بوابة الدفع");
+    }
   };
 
   if (!ready) return null;
