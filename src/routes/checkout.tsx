@@ -112,9 +112,7 @@ function CheckoutPage() {
         }),
       });
       const data = (await res.json().catch(() => ({}))) as {
-        paymentToken?: string;
-        iframeId?: string | null;
-        iframeUrl?: string | null;
+        checkoutUrl?: string;
         error?: string;
       };
 
@@ -122,13 +120,13 @@ function CheckoutPage() {
         console.error("create-payment error:", data.error || res.status);
         throw new Error(data.error || `فشل الطلب (HTTP ${res.status})`);
       }
-      if (!data.paymentToken || !data.iframeUrl) {
+      if (!data.checkoutUrl) {
         console.error("create-payment missing fields:", data);
-        throw new Error("لم يتم استلام paymentToken أو iframeUrl من السيرفر");
+        throw new Error("لم يتم استلام رابط الدفع (checkoutUrl) من السيرفر");
       }
 
       clearDraft();
-      window.location.href = data.iframeUrl;
+      window.location.href = data.checkoutUrl;
       return;
     } catch (err) {
       setPaying(false);
@@ -252,7 +250,7 @@ function CheckoutPage() {
 
             <p className="mt-6 flex items-center gap-2 text-xs text-muted-foreground">
               <Lock className="size-4 text-primary" />
-              بيئة دفع آمنة .
+              بيئة دفع تجريبية آمنة — لن يتم خصم أي مبلغ حقيقي.
             </p>
           </div>
 
