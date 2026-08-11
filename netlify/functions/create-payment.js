@@ -1,4 +1,10 @@
-const PAYMOB_BASE = "https://accept.paymob.com/api";
+// IMPORTANT: Paymob has separate servers per country.
+// Egypt account  -> https://accept.paymob.com
+// Saudi Arabia   -> https://ksa.paymob.com
+// UAE            -> https://uae.paymob.com
+// Oman           -> https://oman.paymob.com
+// Set PAYMOB_BASE_URL in Netlify env vars to match the country your Paymob account was created under.
+const PAYMOB_BASE = `${process.env.PAYMOB_BASE_URL || "https://ksa.paymob.com"}/api`;
 
 const headers = {
   "Content-Type": "application/json",
@@ -35,7 +41,12 @@ export const handler = async (event) => {
   }
 
   try {
-    const { amount, customer = {}, paymentMethod = "card" } = JSON.parse(event.body || "{}");
+    const {
+      amount,
+      customer = {},
+      paymentMethod = "card",
+      transactionId,
+    } = JSON.parse(event.body || "{}");
 
     const numericAmount = Number(amount);
     if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
@@ -68,6 +79,7 @@ export const handler = async (event) => {
       amount_cents: amountCents,
       currency: "SAR",
       items: [],
+      ...(transactionId ? { merchant_order_id: transactionId } : {}),
     });
 
     // 3) Payment key
@@ -98,6 +110,8 @@ export const handler = async (event) => {
       integration_id: Number(integrationId),
     });
 
+    const iframeDomain = process.env.PAYMOB_BASE_URL || "https://ksa.paymob.com";
+
     return {
       statusCode: 200,
       headers,
@@ -105,6 +119,9 @@ export const handler = async (event) => {
         paymentToken: paymentKey.token,
         iframeId: iframeId || null,
         orderId: order.id,
+        iframeUrl: iframeId
+          ? `${iframeDomain}/api/acceptance/iframes/${iframeId}?payment_token=${paymentKey.token}`
+          : null,
       }),
     };
   } catch (error) {
