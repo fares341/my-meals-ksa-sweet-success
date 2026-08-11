@@ -110,18 +110,29 @@ function CheckoutPage() {
           },
         }),
       });
-      if (!res.ok) throw new Error("payment init failed");
-      const { paymentToken, iframeId } = (await res.json()) as {
+      const data = (await res.json().catch(() => ({}))) as {
         paymentToken?: string;
         iframeId?: string | null;
+        error?: string;
       };
-      if (!paymentToken || !iframeId) throw new Error("missing payment token");
+
+      if (!res.ok) {
+        console.error("create-payment error:", data.error || res.status);
+        throw new Error(data.error || `فشل الطلب (HTTP ${res.status})`);
+      }
+      if (!data.paymentToken || !data.iframeId) {
+        console.error("create-payment missing fields:", data);
+        throw new Error("لم يتم استلام paymentToken أو iframeId من السيرفر");
+      }
+
       clearDraft();
-      window.location.href = `https://accept.paymob.com/api/acceptance/iframes/${iframeId}?payment_token=${paymentToken}`;
+      window.location.href = `https://accept.paymob.com/api/acceptance/iframes/${data.iframeId}?payment_token=${data.paymentToken}`;
       return;
-    } catch {
+    } catch (err) {
       setPaying(false);
-      toast.error("تعذّر بدء عملية الدفع، تأكد من إعدادات بوابة الدفع");
+      const message = err instanceof Error ? err.message : "خطأ غير معروف";
+      console.error("Payment error:", message);
+      toast.error(`تعذّر بدء عملية الدفع: ${message}`);
     }
   };
 
@@ -239,7 +250,7 @@ function CheckoutPage() {
 
             <p className="mt-6 flex items-center gap-2 text-xs text-muted-foreground">
               <Lock className="size-4 text-primary" />
-              بيئة دفع تجريبية آمنة — لن يتم خصم أي مبلغ حقيقي.
+              بيئة دفع آمنة .
             </p>
           </div>
 
