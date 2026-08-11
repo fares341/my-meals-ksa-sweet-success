@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { ArrowRight, CreditCard, Loader2, Lock, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
@@ -45,7 +45,6 @@ export const Route = createFileRoute("/checkout")({
 });
 
 function CheckoutPage() {
-  const navigate = useNavigate();
   const [draft, setDraft] = useState<OrderDraft | null>(null);
   const [ready, setReady] = useState(false);
   const [method, setMethod] = useState<string>("mada");
