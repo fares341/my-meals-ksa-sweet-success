@@ -34,6 +34,70 @@ function getPath(obj, path) {
   return path.split(".").reduce((acc, key) => (acc == null ? acc : acc[key]), obj);
 }
 
+const NOTIFY_EMAIL = "mymealsksa@gmail.com";
+
+// Sends the new-subscription notification using Resend (https://resend.com).
+// Requires RESEND_API_KEY in Netlify env vars. RESEND_FROM_EMAIL is optional —
+// defaults to Resend's shared "onboarding@resend.dev" sender, which works
+// without verifying your own domain (fine for internal notification emails).
+async function sendOrderEmail(sub) {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    console.error("RESEND_API_KEY is not set — skipping order confirmation email");
+    return;
+  }
+  const from = process.env.RESEND_FROM_EMAIL || "My Meals KSA <onboarding@resend.dev>";
+
+  const row = (label, value) =>
+    value === undefined || value === null || value === ""
+      ? ""
+      : `<tr><td style="padding:6px 12px;color:#666;white-space:nowrap;">${label}</td><td style="padding:6px 12px;font-weight:bold;">${Array.isArray(value) ? value.join(" · ") : value}</td></tr>`;
+
+  const html = `
+    <div dir="rtl" style="font-family:Arial,Helvetica,sans-serif;max-width:600px;margin:0 auto;">
+      <h2>اشتراك جديد مدفوع 🎉</h2>
+      <table style="border-collapse:collapse;width:100%;">
+        ${row("رقم العملية", sub.transaction_id)}
+        ${row("الاسم", sub.full_name)}
+        ${row("الجوال / واتساب", sub.whatsapp)}
+        ${row("المدينة", sub.city)}
+        ${row("الحي", sub.neighborhood)}
+        ${row("العنوان", sub.address)}
+        ${row("الباقة", sub.plan_name)}
+        ${row("الوجبات اليومية", sub.meals_per_day)}
+        ${row("أنواع الوجبات", sub.meal_types)}
+        ${row("المدة (أيام)", sub.duration_days)}
+        ${row("أيام التوصيل", sub.delivery_days)}
+        ${row("موعد التوصيل", sub.time_slot)}
+        ${row("تاريخ البداية", sub.start_date)}
+        ${row("تاريخ النهاية", sub.end_date)}
+        ${row("السعر الإجمالي", sub.total_price ? `${sub.total_price} ريال` : "")}
+        ${row("طريقة الدفع", sub.payment_method)}
+        ${row("ملاحظات", sub.notes)}
+      </table>
+    </div>
+  `;
+
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      from,
+      to: [NOTIFY_EMAIL],
+      subject: `اشتراك جديد مدفوع — ${sub.full_name || ""} (${sub.transaction_id || ""})`,
+      html,
+    }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    console.error(`Resend email failed (${res.status}): ${text.slice(0, 300)}`);
+  }
+}
+
 function verifyHmac(obj, receivedHmac, secret) {
   if (!secret || !receivedHmac) return false;
   const concatenated = HMAC_FIELDS.map((field) => {
@@ -117,6 +181,19 @@ export const handler = async (event) => {
         .from("subscriptions")
         .update({ payment_status: success ? "paid" : "failed" })
         .eq("transaction_id", String(ourTransactionId));
+
+      if (success) {
+        try {
+          const { data: sub } = await supabaseAdmin
+            .from("subscriptions")
+            .select("*")
+            .eq("transaction_id", String(ourTransactionId))
+            .maybeSingle();
+          if (sub) await sendOrderEmail(sub);
+        } catch (emailErr) {
+          console.error("Failed to send order confirmation email:", emailErr);
+        }
+      }
     } catch (err) {
       console.error("Failed to update payment_status in Supabase:", err);
     }
