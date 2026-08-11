@@ -17,6 +17,7 @@ import {
   mealTypeOptions,
   paymentMethods,
   readDraft,
+  saveReceipt,
   timeSlots,
   weekDays,
   type OrderDraft,
@@ -106,6 +107,12 @@ function CheckoutPage() {
       return;
     }
 
+    saveReceipt({
+      ...draft,
+      transaction_id,
+      payment_method: method,
+      paid_at: new Date().toISOString(),
+    });
     clearDraft();
     navigate({
       to: "/success",

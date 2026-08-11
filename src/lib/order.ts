@@ -60,6 +60,29 @@ export type OrderDraft = {
 };
 
 const KEY = "mymeals_order_draft";
+const RECEIPT_KEY = "mymeals_order_receipt";
+
+export type OrderReceipt = OrderDraft & {
+  transaction_id: string;
+  payment_method: string;
+  paid_at: string;
+};
+
+export function saveReceipt(receipt: OrderReceipt) {
+  if (typeof window === "undefined") return;
+  sessionStorage.setItem(RECEIPT_KEY, JSON.stringify(receipt));
+}
+
+export function readReceipt(): OrderReceipt | null {
+  if (typeof window === "undefined") return null;
+  const raw = sessionStorage.getItem(RECEIPT_KEY);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as OrderReceipt;
+  } catch {
+    return null;
+  }
+}
 
 export function saveDraft(draft: OrderDraft) {
   if (typeof window === "undefined") return;
