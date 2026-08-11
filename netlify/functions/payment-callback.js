@@ -95,6 +95,13 @@ async function sendOrderEmail(sub) {
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     console.error(`Resend email failed (${res.status}): ${text.slice(0, 300)}`);
+    if (!process.env.RESEND_FROM_EMAIL) {
+      console.error(
+        `Using the default onboarding@resend.dev sender — Resend only allows sending to the email address the Resend account itself was signed up with until you verify your own domain. If "${NOTIFY_EMAIL}" is not that exact address, delivery will always fail. Verify a domain in Resend and set RESEND_FROM_EMAIL, or change NOTIFY_EMAIL to match your Resend account email.`,
+      );
+    }
+  } else {
+    console.log("Order confirmation email sent to", NOTIFY_EMAIL);
   }
 }
 
@@ -168,8 +175,24 @@ export const handler = async (event) => {
   if (!secret) {
     console.error("PAYMOB_HMAC_SECRET is not set — refusing to trust callback");
   } else if (!hmacValid) {
-    console.error("Payment callback HMAC verification FAILED — possible spoofed request", {
+    console.error("Payment callback HMAC verification FAILED — possible spoofed request, or PAYMOB_HMAC_SECRET does not match the value in the Paymob dashboard", {
+      method: event.httpMethod,
       orderId,
+      merchantOrderId,
+      receivedHmacPresent: Boolean(receivedHmac),
+    });
+  } else {
+    console.log("Payment callback HMAC verified OK", {
+      method: event.httpMethod,
+      orderId,
+      merchantOrderId,
+      success,
+    });
+  }
+
+  if (!ourTransactionId) {
+    console.error("Payment callback: no transaction id (merchant_order_id / order id) found in payload — cannot update subscription row", {
+      method: event.httpMethod,
     });
   }
 
@@ -177,10 +200,25 @@ export const handler = async (event) => {
   if (hmacValid && ourTransactionId) {
     try {
       const { supabaseAdmin } = await import("../../src/integrations/supabase/client.server.ts");
-      await supabaseAdmin
+      const { error: updateError, data: updated } = await supabaseAdmin
         .from("subscriptions")
         .update({ payment_status: success ? "paid" : "failed" })
-        .eq("transaction_id", String(ourTransactionId));
+        .eq("transaction_id", String(ourTransactionId))
+        .select("id");
+
+      if (updateError) {
+        console.error("Supabase update failed:", updateError.message);
+      } else if (!updated || updated.length === 0) {
+        console.error(
+          "Supabase update matched 0 rows — no subscription with this transaction_id. Was the row inserted before redirecting to Paymob?",
+          { ourTransactionId },
+        );
+      } else {
+        console.log("Subscription payment_status updated", {
+          ourTransactionId,
+          payment_status: success ? "paid" : "failed",
+        });
+      }
 
       if (success) {
         try {
@@ -189,7 +227,11 @@ export const handler = async (event) => {
             .select("*")
             .eq("transaction_id", String(ourTransactionId))
             .maybeSingle();
-          if (sub) await sendOrderEmail(sub);
+          if (sub) {
+            await sendOrderEmail(sub);
+          } else {
+            console.error("Could not load subscription row to email — nothing to send", { ourTransactionId });
+          }
         } catch (emailErr) {
           console.error("Failed to send order confirmation email:", emailErr);
         }
