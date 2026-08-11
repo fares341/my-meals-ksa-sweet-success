@@ -4,8 +4,6 @@ import { ArrowRight, CreditCard, Loader2, Lock, ShieldCheck } from "lucide-react
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { supabase } from "@/integrations/supabase/client";
@@ -49,7 +47,6 @@ function CheckoutPage() {
   const [ready, setReady] = useState(false);
   const [method, setMethod] = useState<string>("mada");
   const [paying, setPaying] = useState(false);
-  const [card, setCard] = useState({ number: "", name: "", expiry: "", cvc: "" });
 
   useEffect(() => {
     setDraft(readDraft());
@@ -193,60 +190,18 @@ function CheckoutPage() {
               ))}
             </div>
 
-            {method === "apple_pay" ? (
-              <div className="mt-8 rounded-2xl border border-border bg-secondary/40 p-6 text-center">
-                <p className="font-display text-lg font-bold">الدفع عبر Apple Pay</p>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  سيتم تأكيد العملية عبر جهازك عند الضغط على «ادفع الآن».
-                </p>
-              </div>
-            ) : (
-              <div className="mt-8 grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="card_number">رقم البطاقة</Label>
-                  <Input
-                    id="card_number"
-                    dir="ltr"
-                    inputMode="numeric"
-                    maxLength={19}
-                    placeholder="4242 4242 4242 4242"
-                    value={card.number}
-                    onChange={(e) => setCard({ ...card, number: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="card_name">الاسم على البطاقة</Label>
-                  <Input
-                    id="card_name"
-                    maxLength={100}
-                    value={card.name}
-                    onChange={(e) => setCard({ ...card, name: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="card_expiry">تاريخ الانتهاء</Label>
-                  <Input
-                    id="card_expiry"
-                    dir="ltr"
-                    placeholder="MM/YY"
-                    maxLength={5}
-                    value={card.expiry}
-                    onChange={(e) => setCard({ ...card, expiry: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="card_cvc">رمز التحقق CVC</Label>
-                  <Input
-                    id="card_cvc"
-                    dir="ltr"
-                    inputMode="numeric"
-                    maxLength={4}
-                    value={card.cvc}
-                    onChange={(e) => setCard({ ...card, cvc: e.target.value })}
-                  />
-                </div>
-              </div>
-            )}
+            <div className="mt-8 rounded-2xl border border-border bg-secondary/40 p-6 text-center">
+              <p className="font-display text-lg font-bold">
+                {method === "apple_pay"
+                  ? "الدفع عبر Apple Pay"
+                  : method === "mada"
+                    ? "الدفع عبر بطاقة مدى"
+                    : "الدفع بالبطاقة الائتمانية"}
+              </p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                سيتم تحويلك لصفحة الدفع الآمنة لإدخال بيانات البطاقة وإتمام العملية بأمان.
+              </p>
+            </div>
 
             <p className="mt-6 flex items-center gap-2 text-xs text-muted-foreground">
               <Lock className="size-4 text-primary" />
