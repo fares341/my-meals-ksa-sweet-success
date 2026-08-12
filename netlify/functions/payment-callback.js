@@ -266,7 +266,7 @@ export const handler = async (event) => {
   // diagnostic code attached so you can read it straight from the URL.
   const location = success
     ? `/success?tx=${encodeURIComponent(ourTransactionId)}${outcome ? `&e=${outcome}` : ""}`
-    : `/checkout?status=failed${outcome ? `&e=${outcome}` : ""}`;
+    : `/failed?tx=${encodeURIComponent(ourTransactionId)}${outcome ? `&e=${outcome}` : ""}`;
 
   return {
     statusCode: 302,
