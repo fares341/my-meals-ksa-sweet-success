@@ -2,16 +2,6 @@
   command = "bun run build"
   publish = "dist"
   functions = "netlify/functions"
- 
+
 [build.environment]
-  # These Supabase values are PUBLIC by design (the URL + publishable key ship
-  # in the browser bundle), so exclude only them from Netlify's secrets scanner.
-  # Real secrets (PAYMOB_*, SUPABASE_SERVICE_ROLE_KEY, RESEND_API_KEY) are NOT
-  # listed here and stay fully scanned.
   SECRETS_SCAN_OMIT_KEYS = "SUPABASE_URL,VITE_SUPABASE_URL,VITE_SUPABASE_PUBLISHABLE_KEY,VITE_SUPABASE_PROJECT_ID,SUPABASE_PUBLISHABLE_KEY,SUPABASE_PROJECT_ID"
- 
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
- 
