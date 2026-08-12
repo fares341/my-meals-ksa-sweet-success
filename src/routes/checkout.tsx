@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { ArrowRight, CreditCard, Loader2, Lock, ShieldCheck } from "lucide-react";
+import { AlertCircle, ArrowRight, CreditCard, Loader2, Lock, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,6 @@ import { SiteFooter } from "@/components/site/SiteFooter";
 import { supabase } from "@/integrations/supabase/client";
 import { arabicNumber } from "@/lib/meals";
 import {
-  clearDraft,
   labelOf,
   makeTransactionId,
   mealTypeOptions,
@@ -47,15 +46,25 @@ function CheckoutPage() {
   const [ready, setReady] = useState(false);
   const [method, setMethod] = useState<string>("mada");
   const [paying, setPaying] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [returnedFailed, setReturnedFailed] = useState(false);
 
   useEffect(() => {
     setDraft(readDraft());
     setReady(true);
+    // If Paymob (or the callback) sent the customer back here after a cancelled/failed
+    // payment, show a friendly retry banner instead of a blank page.
+    if (typeof window !== "undefined") {
+      const sp = new URLSearchParams(window.location.search);
+      if (sp.get("status") === "failed") setReturnedFailed(true);
+    }
   }, []);
 
   const pay = async () => {
     if (!draft) return;
     setPaying(true);
+    setErrorMsg(null);
+    setReturnedFailed(false);
     const transaction_id = makeTransactionId();
 
     const { error } = await supabase.from("subscriptions").insert({
@@ -81,6 +90,7 @@ function CheckoutPage() {
 
     if (error) {
       setPaying(false);
+      setErrorMsg("تعذّر حفظ الطلب. تأكد من اتصالك بالإنترنت وحاول مرة أخرى.");
       toast.error("تعذّر إتمام العملية، حاول مرة أخرى");
       return;
     }
@@ -119,16 +129,19 @@ function CheckoutPage() {
       }
       if (!data.checkoutUrl) {
         console.error("create-payment missing fields:", data);
-        throw new Error("لم يتم استلام رابط الدفع (checkoutUrl) من السيرفر");
+        throw new Error("لم يتم استلام رابط الدفع من السيرفر، حاول مرة أخرى");
       }
 
-      clearDraft();
+      // NOTE: we intentionally keep the saved draft here. If the customer cancels or the
+      // payment fails on Paymob, they come back to this page with their order intact and can
+      // simply press "ادفع الآن" again — no need to rebuild the subscription.
       window.location.href = data.checkoutUrl;
       return;
     } catch (err) {
       setPaying(false);
       const message = err instanceof Error ? err.message : "خطأ غير معروف";
       console.error("Payment error:", message);
+      setErrorMsg(`تعذّر بدء عملية الدفع: ${message}`);
       toast.error(`تعذّر بدء عملية الدفع: ${message}`);
     }
   };
@@ -140,6 +153,17 @@ function CheckoutPage() {
       <div className="min-h-screen bg-background">
         <SiteHeader />
         <main className="mx-auto flex max-w-3xl flex-col items-center px-4 py-24 text-center">
+          {returnedFailed ? (
+            <div className="mb-8 w-full rounded-2xl border border-destructive/30 bg-destructive/5 p-5 text-center">
+              <p className="flex items-center justify-center gap-2 font-display font-bold text-destructive">
+                <AlertCircle className="size-5" />
+                لم تكتمل عملية الدفع
+              </p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                لو تم خصم أي مبلغ فسيتم مراجعته تلقائياً. تقدر تعيد بناء اشتراكك وتحاول مرة أخرى.
+              </p>
+            </div>
+          ) : null}
           <h1 className="font-display text-3xl font-black">لا يوجد اشتراك للدفع</h1>
           <p className="mt-3 text-muted-foreground">
             الرجاء بناء اشتراكك وإدخال بياناتك أولاً ثم المتابعة إلى الدفع.
@@ -169,6 +193,19 @@ function CheckoutPage() {
         <p className="mt-3 text-muted-foreground">
           اختر طريقة الدفع المناسبة لك وأكمل العملية لتأكيد اشتراكك.
         </p>
+
+        {returnedFailed ? (
+          <div className="mt-6 flex items-start gap-3 rounded-2xl border border-destructive/30 bg-destructive/5 p-4">
+            <AlertCircle className="mt-0.5 size-5 shrink-0 text-destructive" />
+            <div>
+              <p className="font-display font-bold text-destructive">لم تكتمل عملية الدفع</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                لو تم خصم أي مبلغ فسيتم مراجعته تلقائياً. بياناتك محفوظة — تقدر تضغط "ادفع الآن"
+                لإعادة المحاولة.
+              </p>
+            </div>
+          </div>
+        ) : null}
 
         <div className="mt-10 grid gap-8 lg:grid-cols-[1.4fr_1fr]">
           <div className="rounded-[2rem] border border-border bg-card p-6 shadow-soft sm:p-9">
@@ -205,7 +242,7 @@ function CheckoutPage() {
 
             <p className="mt-6 flex items-center gap-2 text-xs text-muted-foreground">
               <Lock className="size-4 text-primary" />
-              بيئة دفع تجريبية آمنة — لن يتم خصم أي مبلغ حقيقي.
+              بيئة دفع آمنة ومشفّرة عبر Paymob — يتم خصم المبلغ فعلياً عند إتمام العملية.
             </p>
           </div>
 
@@ -245,9 +282,35 @@ function CheckoutPage() {
               disabled={paying}
               className="mt-8 w-full rounded-full font-display text-base font-bold"
             >
-              {paying ? <Loader2 className="size-5 animate-spin" /> : <CreditCard className="size-5" />}
-              ادفع الآن
+              {paying ? (
+                <>
+                  <Loader2 className="size-5 animate-spin" />
+                  جاري التحويل لصفحة الدفع...
+                </>
+              ) : (
+                <>
+                  <CreditCard className="size-5" />
+                  ادفع الآن
+                </>
+              )}
             </Button>
+
+            {errorMsg ? (
+              <div className="mt-4 flex items-start gap-2 rounded-2xl bg-primary-foreground/10 p-3 text-sm">
+                <AlertCircle className="mt-0.5 size-4 shrink-0 text-accent" />
+                <div className="flex-1">
+                  <p>{errorMsg}</p>
+                  <button
+                    onClick={pay}
+                    disabled={paying}
+                    className="mt-1 font-display font-bold text-accent underline disabled:opacity-60"
+                  >
+                    إعادة المحاولة
+                  </button>
+                </div>
+              </div>
+            ) : null}
+
             <p className="mt-3 flex items-center justify-center gap-2 text-xs text-primary-foreground/60">
               <ShieldCheck className="size-4" />
               معاملة مشفّرة بالكامل
