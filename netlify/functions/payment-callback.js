@@ -34,7 +34,9 @@ function getPath(obj, path) {
   return path.split(".").reduce((acc, key) => (acc == null ? acc : acc[key]), obj);
 }
 
-const NOTIFY_EMAIL = "mymealsksa@gmail.com";
+// Owner notification address. Override in Netlify env with NOTIFY_EMAIL if it ever changes,
+// otherwise it defaults to the shop's Gmail below.
+const NOTIFY_EMAIL = process.env.NOTIFY_EMAIL || "mymealsksa@gmail.com";
 
 // Sends the new-subscription notification using Resend (https://resend.com).
 // Requires RESEND_API_KEY in Netlify env vars. RESEND_FROM_EMAIL is optional —
@@ -139,8 +141,11 @@ export const handler = async (event) => {
 
   if (!txObj) {
     // Reconstruct a flat object from query params (GET redirect-style callback).
-    // Note: the GET redirect uses `id` and `order_id` (flat), while the POST callback
+    // Note: the GET redirect uses `id` and the order id flat, while the POST callback
     // uses `obj.id` and `obj.order.id` (nested) — different key shapes for the same data.
+    // Paymob has shipped the flat order id under BOTH `order_id` and `order` depending on
+    // account/region, so we accept either — otherwise `order.id` in the HMAC concatenation
+    // comes out empty and verification silently fails on every redirect.
     txObj = {
       amount_cents: params.amount_cents,
       created_at: params.created_at,
@@ -155,7 +160,7 @@ export const handler = async (event) => {
       is_refunded: params.is_refunded,
       is_standalone_payment: params.is_standalone_payment,
       is_voided: params.is_voided,
-      order: { id: params.order_id },
+      order: { id: params.order_id || params.order },
       owner: params.owner,
       pending: params.pending,
       source_data: {
@@ -200,40 +205,44 @@ export const handler = async (event) => {
   if (hmacValid && ourTransactionId) {
     try {
       const { supabaseAdmin } = await import("../../src/integrations/supabase/client.server.ts");
+      const newStatus = success ? "paid" : "failed";
+
+      // Idempotent transition: only update rows that are NOT already in the target state.
+      // Paymob delivers this callback more than once (browser redirect + one or more webhook
+      // retries), so this `.neq(...)` guard guarantees we send the owner email exactly once —
+      // on the real pending -> paid transition — instead of on every retry.
       const { error: updateError, data: updated } = await supabaseAdmin
         .from("subscriptions")
-        .update({ payment_status: success ? "paid" : "failed" })
+        .update({ payment_status: newStatus })
         .eq("transaction_id", String(ourTransactionId))
-        .select("id");
+        .neq("payment_status", newStatus)
+        .select("*");
 
       if (updateError) {
         console.error("Supabase update failed:", updateError.message);
       } else if (!updated || updated.length === 0) {
-        console.error(
-          "Supabase update matched 0 rows — no subscription with this transaction_id. Was the row inserted before redirecting to Paymob?",
-          { ourTransactionId },
+        // 0 rows means either (a) already processed — a duplicate/retry, which is fine and
+        // expected, or (b) no subscription matches this transaction_id. If it's (b) on every
+        // attempt, the id Paymob sent back does not equal the `transaction_id` we inserted
+        // before redirecting (check that `special_reference` round-trips).
+        console.warn(
+          "Payment callback: 0 rows transitioned — already processed (idempotent retry) OR no subscription matches this transaction_id.",
+          { ourTransactionId, newStatus },
         );
       } else {
         console.log("Subscription payment_status updated", {
           ourTransactionId,
-          payment_status: success ? "paid" : "failed",
+          payment_status: newStatus,
         });
-      }
 
-      if (success) {
-        try {
-          const { data: sub } = await supabaseAdmin
-            .from("subscriptions")
-            .select("*")
-            .eq("transaction_id", String(ourTransactionId))
-            .maybeSingle();
-          if (sub) {
-            await sendOrderEmail(sub);
-          } else {
-            console.error("Could not load subscription row to email — nothing to send", { ourTransactionId });
+        // Email the owner only on the first successful transition (the row we just flipped
+        // to "paid" is returned in `updated`, so no second query and no double-send).
+        if (success) {
+          try {
+            await sendOrderEmail(updated[0]);
+          } catch (emailErr) {
+            console.error("Failed to send order confirmation email:", emailErr);
           }
-        } catch (emailErr) {
-          console.error("Failed to send order confirmation email:", emailErr);
         }
       }
     } catch (err) {

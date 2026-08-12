@@ -82,8 +82,21 @@ export const handler = async (event) => {
     const nameParts = String(customer.name || "Customer").trim().split(" ");
 
     // Netlify sets `URL` to the deployed site's base URL automatically at runtime.
-    const siteUrl = process.env.URL || process.env.DEPLOY_URL || "";
+    // SITE_URL is an optional manual override (e.g. custom domain, or non-Netlify hosting).
+    const siteUrl = process.env.URL || process.env.DEPLOY_URL || process.env.SITE_URL || "";
     const callbackUrl = siteUrl ? `${siteUrl}/.netlify/functions/payment-callback` : undefined;
+
+    // If this is empty, Paymob is never told where to send the browser back or where to POST
+    // the webhook — so the customer never lands on /success and the owner email never fires.
+    // In that case you MUST register the callback URL manually in the Paymob dashboard, or set
+    // SITE_URL in the environment.
+    if (!callbackUrl) {
+      console.error(
+        "create-payment: no site URL available (URL / DEPLOY_URL / SITE_URL all empty) — " +
+          "no redirection_url/notification_url sent to Paymob. Set SITE_URL or configure the " +
+          "callback URL in the Paymob dashboard, otherwise /success + the owner email will not work.",
+      );
+    }
 
     const intention = await createIntention(
       {
