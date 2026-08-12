@@ -6,6 +6,7 @@ import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { arabicNumber } from "@/lib/meals";
 import {
+  clearDraft,
   labelOf,
   mealTypeOptions,
   paymentMethods,
@@ -49,6 +50,9 @@ function SuccessPage() {
 
   useEffect(() => {
     setReceipt(readReceipt());
+    // Payment is confirmed at this point, so clear the draft. (We no longer clear it before
+    // redirecting to Paymob, so a cancelled/failed payment can be retried from checkout.)
+    clearDraft();
   }, []);
 
   const displayName = receipt?.full_name || name;
