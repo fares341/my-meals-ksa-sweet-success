@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { CheckCircle2, MessageCircle, Sparkles } from "lucide-react";
+import { Check, CheckCircle2, Copy, MessageCircle, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter } from "@/components/site/SiteFooter";
@@ -47,6 +47,7 @@ export const Route = createFileRoute("/success")({
 function SuccessPage() {
   const { tx, amount, name } = Route.useSearch();
   const [receipt, setReceipt] = useState<OrderReceipt | null>(null);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     setReceipt(readReceipt());
@@ -58,6 +59,17 @@ function SuccessPage() {
   const displayName = receipt?.full_name || name;
   const displayTx = receipt?.transaction_id || tx;
   const displayAmount = receipt?.total_price || amount;
+
+  const copyTx = async () => {
+    if (!displayTx) return;
+    try {
+      await navigator.clipboard.writeText(displayTx);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard API unavailable (e.g. insecure context) — silently ignore.
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -80,50 +92,87 @@ function SuccessPage() {
           </p>
         </div>
 
-        <div className="mt-10 grid gap-6 md:grid-cols-2">
-          <section className="rounded-[2rem] border border-border bg-card p-7 shadow-soft">
-            <h2 className="font-display text-xl font-bold">تفاصيل العملية</h2>
-            <ul className="mt-4 space-y-3 text-sm">
-              {displayTx ? <Row label="رقم العملية" value={displayTx} ltr /> : null}
-              {displayAmount ? (
-                <Row label="المبلغ المدفوع" value={`${arabicNumber(displayAmount)} ريال`} />
-              ) : null}
-              {receipt ? (
-                <Row label="طريقة الدفع" value={labelOf(paymentMethods, receipt.payment_method)} />
-              ) : null}
-              <Row label="حالة الدفع" value="مدفوع" highlight />
-            </ul>
-          </section>
+        <div className="mx-auto mt-10 max-w-2xl overflow-hidden rounded-[2rem] border border-border bg-card shadow-soft">
+          <div className="flex items-center justify-between border-b border-dashed border-border bg-secondary/30 px-7 py-5">
+            <div>
+              <p className="font-display text-lg font-black">إيصال الطلب</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">وجباتي My Meals KSA — الطائف</p>
+            </div>
+            <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary">
+              مدفوع
+            </span>
+          </div>
 
-          <section className="rounded-[2rem] border border-border bg-card p-7 shadow-soft">
-            <h2 className="font-display text-xl font-bold">ملخص الاشتراك</h2>
+          {displayTx ? (
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-7 py-5">
+              <div>
+                <p className="text-xs text-muted-foreground">رقم العملية</p>
+                <p className="mt-1 font-display text-lg font-black" dir="ltr">
+                  {displayTx}
+                </p>
+              </div>
+              <button
+                onClick={copyTx}
+                className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-4 py-2 text-sm font-bold text-primary transition-colors hover:border-primary/40"
+                aria-label="نسخ رقم العملية"
+              >
+                {copied ? (
+                  <>
+                    <Check className="size-4" />
+                    تم النسخ
+                  </>
+                ) : (
+                  <>
+                    <Copy className="size-4" />
+                    نسخ
+                  </>
+                )}
+              </button>
+            </div>
+          ) : null}
+
+          <div className="grid gap-x-8 gap-y-3 px-7 py-6 text-sm sm:grid-cols-2">
+            {displayAmount ? (
+              <ReceiptRow label="المبلغ المدفوع" value={`${arabicNumber(displayAmount)} ريال`} highlight />
+            ) : null}
             {receipt ? (
-              <ul className="mt-4 space-y-3 text-sm">
-                <Row label="الباقة" value={receipt.plan_name} />
-                <Row label="الوجبات اليومية" value={arabicNumber(receipt.meals_per_day)} />
-                <Row
-                  label="أنواع الوجبات"
-                  value={receipt.meal_types.map((m) => labelOf(mealTypeOptions, m)).join(" · ")}
-                />
-                <Row label="المدة" value={`${arabicNumber(receipt.duration_days)} يوم`} />
-                <Row
-                  label="أيام التوصيل"
-                  value={receipt.delivery_days.map((d) => labelOf(weekDays, d)).join(" · ")}
-                />
-                <Row label="الحي" value={`${receipt.neighborhood} - الطائف`} />
-                <Row label="موعد التوصيل" value={labelOf(timeSlots, receipt.time_slot)} />
-                <Row label="تاريخ البداية" value={receipt.start_date} ltr />
-                <Row label="تاريخ النهاية" value={receipt.end_date} ltr />
-                <Row label="الجوال" value={receipt.whatsapp} ltr />
-                <Row label="العنوان" value={receipt.address} />
-                {receipt.notes ? <Row label="ملاحظات" value={receipt.notes} /> : null}
-              </ul>
-            ) : (
-              <p className="mt-4 text-sm text-muted-foreground">
-                تفاصيل الاشتراك محفوظة في نظامنا، وسنراجعها معك عند التواصل لتأكيد التوصيل.
-              </p>
-            )}
-          </section>
+              <ReceiptRow label="طريقة الدفع" value={labelOf(paymentMethods, receipt.payment_method)} />
+            ) : null}
+            {receipt ? <ReceiptRow label="الباقة" value={receipt.plan_name} /> : null}
+            {receipt ? (
+              <ReceiptRow label="الوجبات اليومية" value={arabicNumber(receipt.meals_per_day)} />
+            ) : null}
+            {receipt ? (
+              <ReceiptRow
+                label="أنواع الوجبات"
+                value={receipt.meal_types.map((m) => labelOf(mealTypeOptions, m)).join(" · ")}
+              />
+            ) : null}
+            {receipt ? (
+              <ReceiptRow label="المدة" value={`${arabicNumber(receipt.duration_days)} يوم`} />
+            ) : null}
+            {receipt ? (
+              <ReceiptRow
+                label="أيام التوصيل"
+                value={receipt.delivery_days.map((d) => labelOf(weekDays, d)).join(" · ")}
+              />
+            ) : null}
+            {receipt ? (
+              <ReceiptRow label="موعد التوصيل" value={labelOf(timeSlots, receipt.time_slot)} />
+            ) : null}
+            {receipt ? <ReceiptRow label="الحي" value={`${receipt.neighborhood} - الطائف`} /> : null}
+            {receipt ? <ReceiptRow label="العنوان" value={receipt.address} /> : null}
+            {receipt ? <ReceiptRow label="تاريخ البداية" value={receipt.start_date} ltr /> : null}
+            {receipt ? <ReceiptRow label="تاريخ النهاية" value={receipt.end_date} ltr /> : null}
+            {receipt ? <ReceiptRow label="الجوال" value={receipt.whatsapp} ltr /> : null}
+            {receipt?.notes ? <ReceiptRow label="ملاحظات" value={receipt.notes} /> : null}
+          </div>
+
+          {!receipt ? (
+            <p className="border-t border-border px-7 py-5 text-sm text-muted-foreground">
+              تفاصيل الاشتراك محفوظة في نظامنا، وسنراجعها معك عند التواصل لتأكيد التوصيل.
+            </p>
+          ) : null}
         </div>
 
         <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
@@ -143,7 +192,7 @@ function SuccessPage() {
   );
 }
 
-function Row({
+function ReceiptRow({
   label,
   value,
   ltr,
@@ -155,7 +204,7 @@ function Row({
   highlight?: boolean;
 }) {
   return (
-    <li className="flex items-start justify-between gap-3 border-b border-border pb-2 last:border-0">
+    <div className="flex items-start justify-between gap-3 border-b border-dashed border-border/70 pb-2 last:border-0">
       <span className="shrink-0 text-muted-foreground">{label}</span>
       <span
         className={`text-left font-display font-bold ${highlight ? "text-primary" : ""}`}
@@ -163,6 +212,6 @@ function Row({
       >
         {value}
       </span>
-    </li>
+    </div>
   );
 }
