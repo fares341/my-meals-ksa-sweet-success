@@ -34,14 +34,16 @@ function getPath(obj, path) {
 // otherwise it defaults to the shop's Gmail below.
 const NOTIFY_EMAIL = process.env.NOTIFY_EMAIL || "mymealsksa@gmail.com";
 
-// Sends the new-subscription notification using Resend (https://resend.com).
-async function sendOrderEmail(sub) {
+// Sends the subscription notification using Resend (https://resend.com).
+// status: "paid" (successful payment) or "failed" (declined / cancelled).
+async function sendOrderEmail(sub, status = "paid") {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
-    console.error("RESEND_API_KEY is not set — skipping order confirmation email");
+    console.error("RESEND_API_KEY is not set — skipping order notification email");
     return false;
   }
   const from = process.env.RESEND_FROM_EMAIL || "My Meals KSA <onboarding@resend.dev>";
+  const failed = status === "failed";
 
   const row = (label, value) =>
     value === undefined || value === null || value === ""
@@ -50,8 +52,10 @@ async function sendOrderEmail(sub) {
 
   const html = `
     <div dir="rtl" style="font-family:Arial,Helvetica,sans-serif;max-width:600px;margin:0 auto;">
-      <h2>اشتراك جديد مدفوع 🎉</h2>
+      <h2 style="color:${failed ? "#b91c1c" : "#1f5c3a"};">${failed ? "محاولة دفع فاشلة ❌" : "اشتراك جديد مدفوع 🎉"}</h2>
+      ${failed ? `<p style="color:#666;">لم تكتمل عملية الدفع (مرفوضة أو ملغاة). بيانات المحاولة بالأسفل للمتابعة مع العميل.</p>` : ""}
       <table style="border-collapse:collapse;width:100%;">
+        ${row("حالة العملية", failed ? "فاشلة / ملغاة" : "مدفوعة")}
         ${row("رقم العملية", sub.transaction_id)}
         ${row("الاسم", sub.full_name)}
         ${row("الجوال / واتساب", sub.whatsapp)}
@@ -82,7 +86,7 @@ async function sendOrderEmail(sub) {
     body: JSON.stringify({
       from,
       to: [NOTIFY_EMAIL],
-      subject: `اشتراك جديد مدفوع — ${sub.full_name || ""} (${sub.transaction_id || ""})`,
+      subject: `${failed ? "محاولة دفع فاشلة" : "اشتراك جديد مدفوع"} — ${sub.full_name || ""} (${sub.transaction_id || ""})`,
       html,
     }),
   });
@@ -97,7 +101,7 @@ async function sendOrderEmail(sub) {
     }
     return false;
   }
-  console.log("Order confirmation email sent to", NOTIFY_EMAIL);
+  console.log(`Order ${status} email sent to`, NOTIFY_EMAIL);
   return true;
 }
 
@@ -258,12 +262,46 @@ export const handler = async (event) => {
           }
         }
       } else {
-        await supabaseAdmin
+        // Idempotent: only rows not already failed/paid transition, so retries don't re-email.
+        const { data: failedRows, error: failError } = await supabaseAdmin
           .from("subscriptions")
           .update({ payment_status: "failed" })
           .eq("transaction_id", String(ourTransactionId))
-          .neq("payment_status", "paid");
-        outcome = outcome || "declined";
+          .not("payment_status", "in", '("paid","failed")')
+          .select("*");
+
+        if (failError) {
+          console.error("Supabase failed-status update error:", failError.message);
+          outcome = outcome || "dberr";
+        } else if (failedRows && failedRows.length > 0) {
+          const sent = await sendOrderEmail(failedRows[0], "failed");
+          outcome = outcome || (sent ? "declined" : "declinedmailerr");
+        } else {
+          // No row transitioned: either already handled, or nothing matches this id — still
+          // notify the owner in the "no match" case with whatever Paymob gave us.
+          const { data: existing } = await supabaseAdmin
+            .from("subscriptions")
+            .select("payment_status")
+            .eq("transaction_id", String(ourTransactionId))
+            .limit(1);
+
+          if (existing && existing.length > 0) {
+            outcome = outcome || "declined";
+          } else {
+            const sent = await sendOrderEmail(
+              {
+                transaction_id: String(ourTransactionId),
+                full_name: getPath(txObj, "order.shipping_data.first_name") || "غير معروف",
+                whatsapp: getPath(txObj, "order.shipping_data.phone_number") || "",
+                total_price: txObj.amount_cents ? Number(txObj.amount_cents) / 100 : "",
+                payment_method: "Paymob",
+                notes: "محاولة دفع فاشلة بدون طلب مطابق في قاعدة البيانات.",
+              },
+              "failed",
+            );
+            outcome = outcome || (sent ? "declined" : "declinedmailerr");
+          }
+        }
       }
     } catch (err) {
       console.error("Payment callback DB/email error:", err);
