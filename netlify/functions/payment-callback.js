@@ -235,7 +235,27 @@ export const handler = async (event) => {
             "Payment callback: 0 rows transitioned — already processed (retry) OR no subscription matches this transaction id.",
             { ourTransactionId },
           );
-          outcome = outcome || "nomatch";
+          // Distinguish "already paid" (email already sent) from "no such row" (we still
+          // want the owner to hear about a payment we can't match to an order).
+          const { data: existing } = await supabaseAdmin
+            .from("subscriptions")
+            .select("*")
+            .eq("transaction_id", String(ourTransactionId))
+            .limit(1);
+
+          if (existing && existing.length > 0) {
+            outcome = outcome || "ok";
+          } else {
+            const sent = await sendOrderEmail({
+              transaction_id: String(ourTransactionId),
+              full_name: getPath(txObj, "order.shipping_data.first_name") || "غير معروف",
+              whatsapp: getPath(txObj, "order.shipping_data.phone_number") || "",
+              total_price: txObj.amount_cents ? Number(txObj.amount_cents) / 100 : "",
+              payment_method: "Paymob",
+              notes: "تحذير: تم استلام دفعة ناجحة بدون طلب مطابق في قاعدة البيانات.",
+            });
+            outcome = outcome || (sent ? "nomatch" : "nomatchmailerr");
+          }
         }
       } else {
         await supabaseAdmin
