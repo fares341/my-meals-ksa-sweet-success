@@ -3,8 +3,8 @@ import { Mail, MapPin, MessageCircle } from "lucide-react";
 export function SiteFooter() {
   return (
     <footer className="border-t border-border bg-secondary/40">
-      <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 text-right sm:px-6 lg:grid-cols-3">
-        <div>
+      <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 text-center sm:px-6 lg:grid-cols-3 lg:text-right">
+        <div className="flex flex-col items-center lg:items-start">
           <img
             src="/assets/logo.png"
             alt="وجباتي My Meals KSA"
@@ -20,13 +20,13 @@ export function SiteFooter() {
         <div>
           <h3 className="font-display text-lg font-bold">تواصل معنا</h3>
           <ul className="mt-4 space-y-3 text-sm text-muted-foreground">
-            <li className="flex items-center gap-2">
+            <li className="flex items-center justify-center gap-2 lg:justify-start">
               <Mail className="size-4 shrink-0 text-primary" />
               <a href="mailto:mymealsksa@gmail.com" className="hover:text-primary" dir="ltr">
                 mymealsksa@gmail.com
               </a>
             </li>
-            <li className="flex items-center gap-2">
+            <li className="flex items-center justify-center gap-2 lg:justify-start">
               <MessageCircle className="size-4 shrink-0 text-primary" />
               <a
                 href="https://wa.me/message/6R7UXKZY5YVQA1"
@@ -37,7 +37,7 @@ export function SiteFooter() {
                 واتساب خدمة العملاء
               </a>
             </li>
-            <li className="flex items-center gap-2">
+            <li className="flex items-center justify-center gap-2 lg:justify-start">
               <MapPin className="size-4 shrink-0 text-primary" />
               الطائف، المملكة العربية السعودية
             </li>
