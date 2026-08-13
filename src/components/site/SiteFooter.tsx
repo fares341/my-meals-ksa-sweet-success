@@ -6,7 +6,7 @@ export function SiteFooter() {
       <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 text-right sm:px-6 lg:grid-cols-3">
         <div>
           <img
-            src="https://incredible-croissant-8e5f83.netlify.app/assets/logo.png"
+            src="/assets/logo.png"
             alt="وجباتي My Meals KSA"
             className="h-14 w-auto"
             loading="lazy"
@@ -51,7 +51,7 @@ export function SiteFooter() {
           </p>
           <div className="mt-4 inline-block overflow-hidden rounded-2xl border border-border bg-card p-3 shadow-soft">
             <img
-              src="https://incredible-croissant-8e5f83.netlify.app/assets/commercial-registration.png"
+              src="/assets/commercial-registration.png"
               alt="السجل التجاري - وزارة التجارة"
               className="h-40 w-auto object-contain"
               loading="lazy"

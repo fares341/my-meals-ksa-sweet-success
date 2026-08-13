@@ -34,6 +34,8 @@ type Props = {
 };
 
 const today = () => new Date().toISOString().slice(0, 10);
+// No same-day booking: the earliest allowed start is tomorrow.
+const tomorrow = () => addDays(today(), 1);
 
 export function PricingBuilder({ planId, onPlanChange }: Props) {
   const navigate = useNavigate();
@@ -49,7 +51,7 @@ export function PricingBuilder({ planId, onPlanChange }: Props) {
   ]);
   const [neighborhood, setNeighborhood] = useState<string>(neighborhoods[0]);
   const [timeSlot, setTimeSlot] = useState<string>(timeSlots[0].id);
-  const [startDate, setStartDate] = useState<string>(today());
+  const [startDate, setStartDate] = useState<string>(tomorrow());
   const [form, setForm] = useState({ full_name: "", whatsapp: "", address: "" });
 
   const plan = plans.find((p) => p.id === planId) ?? plans[0]!;
@@ -71,6 +73,10 @@ export function PricingBuilder({ planId, onPlanChange }: Props) {
     }
     if (deliveryDays.length === 0) {
       toast.error("اختر أيام التوصيل");
+      return;
+    }
+    if (startDate < tomorrow()) {
+      toast.error("تاريخ البداية يجب أن يكون من الغد على الأقل (لا يوجد حجز في نفس اليوم)");
       return;
     }
     const parsed = detailsSchema.safeParse(form);
@@ -215,8 +221,12 @@ export function PricingBuilder({ planId, onPlanChange }: Props) {
                   id="start_date"
                   type="date"
                   value={startDate}
-                  min={today()}
-                  onChange={(e) => setStartDate(e.target.value || today())}
+                  min={tomorrow()}
+                  onChange={(e) => {
+                    const picked = e.target.value || tomorrow();
+                    // Guard against same-day / past dates even if typed manually.
+                    setStartDate(picked < tomorrow() ? tomorrow() : picked);
+                  }}
                 />
               </div>
               <div className="space-y-2">

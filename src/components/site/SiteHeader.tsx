@@ -22,7 +22,7 @@ export function SiteHeader() {
       <div className="mx-auto flex h-20 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6">
         <a href="#home" className="flex shrink-0 items-center gap-3">
           <img
-            src="https://incredible-croissant-8e5f83.netlify.app/assets/logo.png"
+            src="/assets/logo.png"
             alt="وجباتي My Meals KSA"
             className="h-12 w-auto"
           />
