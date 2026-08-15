@@ -349,15 +349,23 @@ function Chip({
   active,
   onClick,
   children,
+  disabled,
 }: {
   active: boolean;
   onClick: () => void;
   children: React.ReactNode;
+  disabled?: boolean;
 }) {
   return (
     <button
       onClick={onClick}
+      disabled={disabled}
+      aria-disabled={disabled}
       className={`rounded-2xl border px-4 py-3 font-display font-bold transition-all ${
+        disabled
+          ? "cursor-not-allowed border-border bg-muted text-muted-foreground opacity-60"
+          : ""
+      } ${
         active
           ? "border-primary bg-primary text-primary-foreground shadow-soft"
           : "border-border hover:border-primary/40"
