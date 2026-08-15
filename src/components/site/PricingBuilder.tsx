@@ -12,8 +12,10 @@ import {
   addDays,
   freeGiftLabel,
   mealTypeOptions,
+  isOutOfZone,
   neighborhoods,
   saveDraft,
+  slotsForNeighborhood,
   timeSlots,
   unavailableDeliveryDays,
   weekDays,
@@ -51,8 +53,8 @@ export function PricingBuilder({ planId, onPlanChange }: Props) {
     "wed",
     "thu",
   ]);
-  const [neighborhood, setNeighborhood] = useState<string>(neighborhoods[0]);
-  const [timeSlot, setTimeSlot] = useState<string>(timeSlots[0].id);
+  const [neighborhood, setNeighborhood] = useState<string>(neighborhoods[0] ?? "");
+  const [timeSlot, setTimeSlot] = useState<string>(slotsForNeighborhood(neighborhoods[0] ?? "")[0] ?? "");
   const [startDate, setStartDate] = useState<string>(tomorrow());
   const [wantsSalad, setWantsSalad] = useState(true);
   const [form, setForm] = useState({ full_name: "", whatsapp: "", address: "" });
@@ -62,6 +64,17 @@ export function PricingBuilder({ planId, onPlanChange }: Props) {
   const perDay = days > 0 ? Math.round(price / days) : 0;
   const endDate = useMemo(() => addDays(startDate, Math.max(days - 1, 0)), [startDate, days]);
   const gift = freeGiftLabel(meals, wantsSalad);
+  const availableSlots = useMemo(
+    () => timeSlots.filter((t) => slotsForNeighborhood(neighborhood).includes(t.id)),
+    [neighborhood],
+  );
+  const outOfZone = isOutOfZone(neighborhood);
+
+  useEffect(() => {
+    setTimeSlot((prev) =>
+      availableSlots.some((t) => t.id === prev) ? prev : (availableSlots[0]?.id ?? ""),
+    );
+  }, [availableSlots]);
 
   useEffect(() => {
     setMealTypes((prev) => (prev.length === meals ? prev : mealTypeOptions.slice(0, meals).map((m) => m.id)));
@@ -73,6 +86,14 @@ export function PricingBuilder({ planId, onPlanChange }: Props) {
   const proceed = () => {
     if (mealTypes.length !== meals) {
       toast.error(`اختر ${arabicNumber(meals)} نوع وجبة بحسب عدد الوجبات اليومية`);
+      return;
+    }
+    if (outOfZone) {
+      toast.error("نعتذر، هذا الحي خارج نطاق التوصيل حالياً");
+      return;
+    }
+    if (!timeSlot) {
+      toast.error("اختر موعد التوصيل");
       return;
     }
     if (deliveryDays.length === 0) {
@@ -225,16 +246,31 @@ export function PricingBuilder({ planId, onPlanChange }: Props) {
               <select
                 value={timeSlot}
                 onChange={(e) => setTimeSlot(e.target.value)}
-                className="h-12 rounded-2xl border border-border bg-background px-4 font-display font-bold"
+                disabled={outOfZone}
+                className="h-12 rounded-2xl border border-border bg-background px-4 font-display font-bold disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground"
                 aria-label="موعد التوصيل"
               >
-                {timeSlots.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.label}
-                  </option>
-                ))}
+                {outOfZone ? (
+                  <option value="">خارج التغطية</option>
+                ) : (
+                  availableSlots.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.label}
+                    </option>
+                  ))
+                )}
               </select>
             </div>
+            {outOfZone ? (
+              <p className="mt-3 rounded-2xl border border-destructive/30 bg-destructive/10 p-3 text-sm font-bold text-destructive">
+                نعتذر، هذا الحي خارج نطاق التوصيل حالياً
+              </p>
+            ) : (
+              <p className="mt-3 text-xs text-muted-foreground">
+                مواعيد التوصيل المتاحة لحي {neighborhood}:{" "}
+                {availableSlots.map((t) => t.label).join(" · ")}
+              </p>
+            )}
           </Group>
 
           <Group title="تاريخ البداية والنهاية">
