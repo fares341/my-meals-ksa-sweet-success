@@ -12,8 +12,10 @@ import {
   addDays,
   freeGiftLabel,
   mealTypeOptions,
+  isOutOfZone,
   neighborhoods,
   saveDraft,
+  slotsForNeighborhood,
   timeSlots,
   unavailableDeliveryDays,
   weekDays,
@@ -51,8 +53,8 @@ export function PricingBuilder({ planId, onPlanChange }: Props) {
     "wed",
     "thu",
   ]);
-  const [neighborhood, setNeighborhood] = useState<string>(neighborhoods[0]);
-  const [timeSlot, setTimeSlot] = useState<string>(timeSlots[0].id);
+  const [neighborhood, setNeighborhood] = useState<string>(neighborhoods[0] ?? "");
+  const [timeSlot, setTimeSlot] = useState<string>(slotsForNeighborhood(neighborhoods[0] ?? "")[0] ?? "");
   const [startDate, setStartDate] = useState<string>(tomorrow());
   const [wantsSalad, setWantsSalad] = useState(true);
   const [form, setForm] = useState({ full_name: "", whatsapp: "", address: "" });
@@ -62,6 +64,17 @@ export function PricingBuilder({ planId, onPlanChange }: Props) {
   const perDay = days > 0 ? Math.round(price / days) : 0;
   const endDate = useMemo(() => addDays(startDate, Math.max(days - 1, 0)), [startDate, days]);
   const gift = freeGiftLabel(meals, wantsSalad);
+  const availableSlots = useMemo(
+    () => timeSlots.filter((t) => slotsForNeighborhood(neighborhood).includes(t.id)),
+    [neighborhood],
+  );
+  const outOfZone = isOutOfZone(neighborhood);
+
+  useEffect(() => {
+    setTimeSlot((prev) =>
+      availableSlots.some((t) => t.id === prev) ? prev : (availableSlots[0]?.id ?? ""),
+    );
+  }, [availableSlots]);
 
   useEffect(() => {
     setMealTypes((prev) => (prev.length === meals ? prev : mealTypeOptions.slice(0, meals).map((m) => m.id)));
@@ -73,6 +86,14 @@ export function PricingBuilder({ planId, onPlanChange }: Props) {
   const proceed = () => {
     if (mealTypes.length !== meals) {
       toast.error(`اختر ${arabicNumber(meals)} نوع وجبة بحسب عدد الوجبات اليومية`);
+      return;
+    }
+    if (outOfZone) {
+      toast.error("نعتذر، هذا الحي خارج نطاق التوصيل حالياً");
+      return;
+    }
+    if (!timeSlot) {
+      toast.error("اختر موعد التوصيل");
       return;
     }
     if (deliveryDays.length === 0) {
