@@ -1,23 +1,79 @@
-export const neighborhoods = [
-  "الشهداء الشمالية",
-  "الشهداء الجنوبية",
-  "الفيصلية",
-  "القمرية",
-  "الحوية",
-  "الوشحاء",
-  "معشي",
-  "السلامة",
-  "النزهة",
-  "الربيع",
-  "شهار",
-  "السداد",
+// Full catalog of delivery slots (used for labels everywhere).
+export const timeSlots = [
+  { id: "0700", label: "٧:٠٠ صباحاً" },
+  { id: "0800", label: "٨:٠٠ صباحاً" },
+  { id: "0930", label: "٩:٣٠ صباحاً" },
+  { id: "1100", label: "١١:٠٠ صباحاً" },
+  { id: "1800", label: "٦:٠٠ مساءً" },
+  { id: "2000", label: "٨:٠٠ مساءً" },
+  { id: "2100", label: "٩:٠٠ مساءً" },
 ] as const;
 
-export const timeSlots = [
-  { id: "morning", label: "صباحاً (٧ - ١٠)" },
-  { id: "noon", label: "ظهراً (١٢ - ٣)" },
-  { id: "evening", label: "مساءً (٥ - ٩)" },
-] as const;
+export type NeighborhoodInfo = {
+  name: string;
+  slots: string[];
+};
+
+// Taif neighborhood delivery schedule.
+export const neighborhoodSchedule: NeighborhoodInfo[] = [
+  // Group 1 — 9:30 AM only
+  ...["القاعدة الجوية", "الحوية (وما حولها)", "السيل الصغير", "مدينة الورود", "مستشفى الحرس"].map(
+    (name) => ({ name, slots: ["0930"] }),
+  ),
+  // Group 2 — 11:00 AM / 9:00 PM
+  ...[
+    "الفيصلية بالطائف",
+    "القمرية",
+    "البيعة",
+    "جبرة",
+    "الجال",
+    "السحيلي",
+    "النسيم",
+    "الصناعية",
+  ].map((name) => ({ name, slots: ["1100", "2100"] })),
+  // Group 3 — 7:00 AM / 11:00 AM / 6:00 PM
+  ...["الحلقة", "القيم", "الشرفية", "الصيانة"].map((name) => ({
+    name,
+    slots: ["0700", "1100", "1800"],
+  })),
+  // Group 4 — 8:00 AM / 8:00 PM
+  ...[
+    "الوسام",
+    "المثناة",
+    "قروى",
+    "ام العراد",
+    "ام السباع",
+    "شهار",
+    "الشهداء",
+    "الريان",
+    "نخب",
+    "عودة",
+    "البخارية",
+    "الوشحاء",
+    "النزهه",
+    "السلامة",
+    "العزيزية",
+    "الشرقية",
+    "السداد",
+    "مستشفى الملك عبدالعزيز",
+    "مستشفى الملك فيصل",
+  ].map((name) => ({ name, slots: ["0800", "2000"] })),
+  // Out of delivery zone
+  ...["الهداء", "الشفاء", "طريق الجنوب", "العرفاء", "السيل الكبير"].map((name) => ({
+    name,
+    slots: [],
+  })),
+];
+
+export const neighborhoods = neighborhoodSchedule.map((n) => n.name);
+
+export function slotsForNeighborhood(name: string): string[] {
+  return neighborhoodSchedule.find((n) => n.name === name)?.slots ?? [];
+}
+
+export function isOutOfZone(name: string) {
+  return slotsForNeighborhood(name).length === 0;
+}
 
 export const mealTypeOptions = [
   { id: "breakfast", label: "فطور" },
