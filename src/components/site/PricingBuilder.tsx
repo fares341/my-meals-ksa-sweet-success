@@ -246,16 +246,31 @@ export function PricingBuilder({ planId, onPlanChange }: Props) {
               <select
                 value={timeSlot}
                 onChange={(e) => setTimeSlot(e.target.value)}
-                className="h-12 rounded-2xl border border-border bg-background px-4 font-display font-bold"
+                disabled={outOfZone}
+                className="h-12 rounded-2xl border border-border bg-background px-4 font-display font-bold disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground"
                 aria-label="موعد التوصيل"
               >
-                {timeSlots.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.label}
-                  </option>
-                ))}
+                {outOfZone ? (
+                  <option value="">خارج التغطية</option>
+                ) : (
+                  availableSlots.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.label}
+                    </option>
+                  ))
+                )}
               </select>
             </div>
+            {outOfZone ? (
+              <p className="mt-3 rounded-2xl border border-destructive/30 bg-destructive/10 p-3 text-sm font-bold text-destructive">
+                نعتذر، هذا الحي خارج نطاق التوصيل حالياً
+              </p>
+            ) : (
+              <p className="mt-3 text-xs text-muted-foreground">
+                مواعيد التوصيل المتاحة لحي {neighborhood}:{" "}
+                {availableSlots.map((t) => t.label).join(" · ")}
+              </p>
+            )}
           </Group>
 
           <Group title="تاريخ البداية والنهاية">
