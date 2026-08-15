@@ -10,10 +10,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { arabicNumber, durations, getPrice, mealCounts, plans } from "@/lib/meals";
 import {
   addDays,
+  freeGiftLabel,
   mealTypeOptions,
   neighborhoods,
   saveDraft,
   timeSlots,
+  unavailableDeliveryDays,
   weekDays,
 } from "@/lib/order";
 
@@ -25,7 +27,7 @@ const detailsSchema = z.object({
     .min(9, "رقم الواتساب غير صحيح")
     .max(20, "رقم الواتساب غير صحيح")
     .regex(/^[0-9+\s-]+$/, "رقم الواتساب غير صحيح"),
-  address: z.string().trim().min(10, "الرجاء كتابة عنوان مفصل").max(500, "العنوان طويل جداً"),
+  address: z.string().trim().max(500, "العنوان طويل جداً").optional(),
 });
 
 type Props = {
@@ -52,12 +54,14 @@ export function PricingBuilder({ planId, onPlanChange }: Props) {
   const [neighborhood, setNeighborhood] = useState<string>(neighborhoods[0]);
   const [timeSlot, setTimeSlot] = useState<string>(timeSlots[0].id);
   const [startDate, setStartDate] = useState<string>(tomorrow());
+  const [wantsSalad, setWantsSalad] = useState(true);
   const [form, setForm] = useState({ full_name: "", whatsapp: "", address: "" });
 
   const plan = plans.find((p) => p.id === planId) ?? plans[0]!;
   const price = useMemo(() => getPrice(plan.id, meals, days), [plan.id, meals, days]);
   const perDay = days > 0 ? Math.round(price / days) : 0;
   const endDate = useMemo(() => addDays(startDate, Math.max(days - 1, 0)), [startDate, days]);
+  const gift = freeGiftLabel(meals, wantsSalad);
 
   useEffect(() => {
     setMealTypes((prev) => (prev.length === meals ? prev : mealTypeOptions.slice(0, meals).map((m) => m.id)));
@@ -99,7 +103,8 @@ export function PricingBuilder({ planId, onPlanChange }: Props) {
       end_date: endDate,
       full_name: parsed.data.full_name,
       whatsapp: parsed.data.whatsapp,
-      address: parsed.data.address,
+      address: parsed.data.address ?? "",
+      free_gift: gift,
     });
     navigate({ to: "/checkout" });
   };
@@ -176,11 +181,30 @@ export function PricingBuilder({ planId, onPlanChange }: Props) {
                 <Chip
                   key={d.id}
                   active={deliveryDays.includes(d.id)}
+                  disabled={unavailableDeliveryDays.includes(d.id)}
                   onClick={() => setDeliveryDays(toggle(deliveryDays, d.id))}
                 >
                   {d.label}
                 </Chip>
               ))}
+            </div>
+            <p className="mt-3 text-xs text-muted-foreground">لا يوجد توصيل يوم الجمعة.</p>
+          </Group>
+
+          <Group title="الهدايا المجانية">
+            <div className="rounded-2xl border border-border bg-secondary/40 p-4">
+              <p className="font-display font-bold text-primary">
+                {meals >= 3 ? "اشتراكك يشمل: سلطة + سناك هدية 🎁" : "اشتراكك يشمل: سلطة هدية 🎁"}
+              </p>
+              <label className="mt-3 flex cursor-pointer items-center gap-3 text-sm">
+                <input
+                  type="checkbox"
+                  className="size-4 accent-[var(--color-primary)]"
+                  checked={!wantsSalad}
+                  onChange={(e) => setWantsSalad(!e.target.checked)}
+                />
+                لا أريد السلطة المجانية
+              </label>
             </div>
           </Group>
 
@@ -261,6 +285,7 @@ export function PricingBuilder({ planId, onPlanChange }: Props) {
               </div>
               <div className="space-y-2 sm:col-span-2">
                 <Label htmlFor="address">العنوان التفصيلي</Label>
+                <span className="ms-2 text-xs text-muted-foreground">(اختياري)</span>
                 <Textarea
                   id="address"
                   rows={3}
@@ -289,6 +314,7 @@ export function PricingBuilder({ planId, onPlanChange }: Props) {
             <Row label="المدة" value={`${arabicNumber(days)} يوم`} />
             <Row label="الحي" value={neighborhood} />
             <Row label="أيام التوصيل" value={`${arabicNumber(deliveryDays.length)} أيام`} />
+            <Row label="الهدية المجانية" value={gift || "بدون هدية"} />
             <Row label="التكلفة اليومية" value={`${arabicNumber(perDay)} ريال`} />
           </ul>
 
