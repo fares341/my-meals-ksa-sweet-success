@@ -15,6 +15,7 @@ import {
   paymentMethods,
   readDraft,
   saveReceipt,
+  tabbyTotal,
   timeSlots,
   weekDays,
   type OrderDraft,
@@ -48,6 +49,10 @@ function CheckoutPage() {
   const [paying, setPaying] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [returnedFailed, setReturnedFailed] = useState(false);
+  const isTabby = method === "tabby";
+  const baseTotal = draft?.total_price ?? 0;
+  const tabbyFee = isTabby ? tabbyTotal(baseTotal) - baseTotal : 0;
+  const amountDue = baseTotal + tabbyFee;
 
   useEffect(() => {
     setDraft(readDraft());
@@ -82,10 +87,13 @@ function CheckoutPage() {
       plan_name: draft.plan_name,
       meals_per_day: draft.meals_per_day,
       duration_days: draft.duration_days,
-      total_price: draft.total_price,
+      total_price: amountDue,
       payment_method: method,
       payment_status: "pending",
       transaction_id,
+      notes: [draft.free_gift ? `هدية: ${draft.free_gift}` : null, isTabby ? "تقسيط تابي (٤ أقساط) + رسوم ٨٪" : null]
+        .filter(Boolean)
+        .join(" · ") || null,
     });
 
     if (error) {
@@ -97,6 +105,7 @@ function CheckoutPage() {
 
     saveReceipt({
       ...draft,
+      total_price: amountDue,
       transaction_id,
       payment_method: method,
       paid_at: new Date().toISOString(),
@@ -107,7 +116,7 @@ function CheckoutPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          amount: draft.total_price,
+          amount: amountDue,
           paymentMethod: method,
           transactionId: transaction_id,
           customer: {
@@ -210,7 +219,7 @@ function CheckoutPage() {
         <div className="mt-10 grid gap-8 lg:grid-cols-[1.4fr_1fr]">
           <div className="rounded-[2rem] border border-border bg-card p-6 shadow-soft sm:p-9">
             <h2 className="font-display text-xl font-bold">طريقة الدفع</h2>
-            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
               {paymentMethods.map((p) => (
                 <button
                   key={p.id}
@@ -229,14 +238,18 @@ function CheckoutPage() {
 
             <div className="mt-8 rounded-2xl border border-border bg-secondary/40 p-6 text-center">
               <p className="font-display text-lg font-bold">
-                {method === "apple_pay"
+                {isTabby
+                  ? "الدفع بالتقسيط عبر تابي (Tabby)"
+                  : method === "apple_pay"
                   ? "الدفع عبر Apple Pay"
                   : method === "mada"
                     ? "الدفع عبر بطاقة مدى"
                     : "الدفع بالبطاقة الائتمانية"}
               </p>
               <p className="mt-2 text-sm text-muted-foreground">
-                سيتم تحويلك لصفحة الدفع الآمنة لإدخال بيانات البطاقة وإتمام العملية بأمان.
+                {isTabby
+                  ? "عند اختيار تابي سيتم إرسال رابط دفع مباشرةً على جوالك / الواتساب لإكمال التقسيط على ٤ دفعات، مع إضافة رسوم خدمة ٨٪ على الإجمالي."
+                  : "سيتم تحويلك لصفحة الدفع الآمنة لإدخال بيانات البطاقة وإتمام العملية بأمان."}
               </p>
             </div>
 
@@ -249,7 +262,7 @@ function CheckoutPage() {
           <aside className="h-fit rounded-[2rem] bg-primary p-7 text-primary-foreground shadow-lift sm:p-9 lg:sticky lg:top-28">
             <p className="text-sm text-primary-foreground/70">ملخص الطلب</p>
             <p className="mt-2 font-display text-4xl font-black text-accent">
-              {arabicNumber(draft.total_price)}
+              {arabicNumber(amountDue)}
               <span className="ms-2 font-sans text-base font-medium text-primary-foreground/80">
                 ريال
               </span>
@@ -257,6 +270,7 @@ function CheckoutPage() {
 
             <ul className="mt-6 space-y-3 text-sm">
               <Row label="الباقة" value={draft.plan_name} />
+              {draft.free_gift ? <Row label="الهدية المجانية" value={draft.free_gift} /> : null}
               <Row label="الوجبات اليومية" value={arabicNumber(draft.meals_per_day)} />
               <Row
                 label="أنواع الوجبات"
@@ -273,6 +287,13 @@ function CheckoutPage() {
               <Row label="إلى" value={draft.end_date} />
               <Row label="الاسم" value={draft.full_name} />
               <Row label="الجوال" value={draft.whatsapp} />
+              {isTabby ? (
+                <>
+                  <Row label="قيمة الاشتراك" value={`${arabicNumber(baseTotal)} ريال`} />
+                  <Row label="رسوم تابي (٨٪)" value={`${arabicNumber(tabbyFee)} ريال`} />
+                  <Row label="الإجمالي بعد الرسوم" value={`${arabicNumber(amountDue)} ريال`} />
+                </>
+              ) : null}
             </ul>
 
             <Button
