@@ -139,6 +139,9 @@ function SuccessPage() {
               <ReceiptRow label="طريقة الدفع" value={labelOf(paymentMethods, receipt.payment_method)} />
             ) : null}
             {receipt ? <ReceiptRow label="الباقة" value={receipt.plan_name} /> : null}
+            {receipt?.free_gift ? (
+              <ReceiptRow label="الهدية المجانية" value={receipt.free_gift} />
+            ) : null}
             {receipt ? (
               <ReceiptRow label="الوجبات اليومية" value={arabicNumber(receipt.meals_per_day)} />
             ) : null}
