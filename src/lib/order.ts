@@ -35,10 +35,28 @@ export const weekDays = [
   { id: "sat", label: "السبت" },
 ] as const;
 
+// No delivery on Fridays.
+export const unavailableDeliveryDays: string[] = ["fri"];
+
+// Free gift depends on the number of daily meals; the salad can be opted out.
+export function freeGiftLabel(mealsPerDay: number, wantsSalad: boolean) {
+  const gifts: string[] = [];
+  if (wantsSalad) gifts.push("سلطة هدية");
+  if (mealsPerDay >= 3) gifts.push("سناك هدية");
+  return gifts.join(" + ");
+}
+
+export const TABBY_FEE_RATE = 0.08;
+
+export function tabbyTotal(amount: number) {
+  return Math.round(amount * (1 + TABBY_FEE_RATE));
+}
+
 export const paymentMethods = [
   { id: "mada", label: "مدى", hint: "بطاقة مدى البنكية" },
   { id: "card", label: "بطاقة ائتمانية", hint: "Visa / Mastercard" },
   { id: "apple_pay", label: "Apple Pay", hint: "الدفع السريع من جهازك" },
+  { id: "tabby", label: "تابي (تقسيط)", hint: "٤ أقساط · رسوم خدمة ٨٪" },
 ] as const;
 
 export type OrderDraft = {
@@ -56,6 +74,7 @@ export type OrderDraft = {
   full_name: string;
   whatsapp: string;
   address: string;
+  free_gift?: string;
   notes?: string;
 };
 
