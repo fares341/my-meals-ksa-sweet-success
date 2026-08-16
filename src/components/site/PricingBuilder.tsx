@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { CreditCard } from "lucide-react";
+import { CheckCircle2, CreditCard, Loader2, X } from "lucide-react";
 import { z } from "zod";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -8,17 +8,23 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { arabicNumber, durations, getPrice, mealCounts, plans } from "@/lib/meals";
+import { validateCoupon, discountFor, type CouponResult } from "@/lib/coupons";
 import {
   addDays,
+  allowedWeeklyDays,
+  computeEndDate,
   freeGiftLabel,
+  isFriday,
   mealTypeOptions,
   isOutOfZone,
   neighborhoods,
+  nextDeliveryDate,
   saveDraft,
   slotsForNeighborhood,
   timeSlots,
   unavailableDeliveryDays,
   weekDays,
+  weeklyDaysHint,
 } from "@/lib/order";
 
 const detailsSchema = z.object({
@@ -58,12 +64,24 @@ export function PricingBuilder({ planId, onPlanChange }: Props) {
   const [startDate, setStartDate] = useState<string>(tomorrow());
   const [wantsSalad, setWantsSalad] = useState(true);
   const [form, setForm] = useState({ full_name: "", whatsapp: "", address: "" });
+  const [couponInput, setCouponInput] = useState("");
+  const [coupon, setCoupon] = useState<CouponResult | null>(null);
+  const [couponError, setCouponError] = useState<string | null>(null);
+  const [checkingCoupon, setCheckingCoupon] = useState(false);
 
   const plan = plans.find((p) => p.id === planId) ?? plans[0]!;
   const price = useMemo(() => getPrice(plan.id, meals, days), [plan.id, meals, days]);
-  const perDay = days > 0 ? Math.round(price / days) : 0;
-  const endDate = useMemo(() => addDays(startDate, Math.max(days - 1, 0)), [startDate, days]);
+  const discount = coupon ? discountFor(coupon.discount_type, coupon.discount_value, price) : 0;
+  const total = Math.max(price - discount, 0);
+  const perDay = days > 0 ? Math.round(total / days) : 0;
+  const endDate = useMemo(
+    () => computeEndDate(startDate, days, deliveryDays),
+    [startDate, days, deliveryDays],
+  );
   const gift = freeGiftLabel(meals, wantsSalad);
+  const allowedDays = allowedWeeklyDays(days);
+  const maxDays = Math.max(...allowedDays);
+  const daysRuleOk = allowedDays.includes(deliveryDays.length);
   const availableSlots = useMemo(
     () => timeSlots.filter((t) => slotsForNeighborhood(neighborhood).includes(t.id)),
     [neighborhood],
@@ -80,8 +98,54 @@ export function PricingBuilder({ planId, onPlanChange }: Props) {
     setMealTypes((prev) => (prev.length === meals ? prev : mealTypeOptions.slice(0, meals).map((m) => m.id)));
   }, [meals]);
 
+  // Keep the selected delivery days within the rules of the chosen duration.
+  useEffect(() => {
+    setDeliveryDays((prev) => (prev.length > maxDays ? prev.slice(0, maxDays) : prev));
+  }, [maxDays]);
+
+  // Fridays and unselected weekdays can't be a start date.
+  useEffect(() => {
+    setStartDate((prev) => {
+      const next = nextDeliveryDate(prev, deliveryDays);
+      return next && next !== prev ? next : prev;
+    });
+  }, [deliveryDays]);
+
   const toggle = (list: string[], value: string) =>
     list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
+
+  const toggleDeliveryDay = (id: string) => {
+    if (deliveryDays.includes(id)) {
+      setDeliveryDays(deliveryDays.filter((d) => d !== id));
+      return;
+    }
+    if (deliveryDays.length >= maxDays) {
+      toast.error(weeklyDaysHint(days));
+      return;
+    }
+    setDeliveryDays([...deliveryDays, id]);
+  };
+
+  const applyCoupon = async () => {
+    setCheckingCoupon(true);
+    setCouponError(null);
+    const res = await validateCoupon(couponInput, price);
+    setCheckingCoupon(false);
+    if (!res.ok) {
+      setCoupon(null);
+      setCouponError(res.error);
+      return;
+    }
+    setCoupon(res.coupon);
+    setCouponInput(res.coupon.code);
+    toast.success("تم تطبيق كود الخصم بنجاح!");
+  };
+
+  const clearCoupon = () => {
+    setCoupon(null);
+    setCouponInput("");
+    setCouponError(null);
+  };
 
   const proceed = () => {
     if (mealTypes.length !== meals) {
@@ -96,12 +160,16 @@ export function PricingBuilder({ planId, onPlanChange }: Props) {
       toast.error("اختر موعد التوصيل");
       return;
     }
-    if (deliveryDays.length === 0) {
-      toast.error("اختر أيام التوصيل");
+    if (!daysRuleOk) {
+      toast.error(weeklyDaysHint(days));
       return;
     }
     if (startDate < tomorrow()) {
       toast.error("تاريخ البداية يجب أن يكون من الغد على الأقل (لا يوجد حجز في نفس اليوم)");
+      return;
+    }
+    if (isFriday(startDate)) {
+      toast.error("لا يوجد توصيل يوم الجمعة، اختر تاريخ بداية آخر");
       return;
     }
     const parsed = detailsSchema.safeParse(form);
@@ -115,7 +183,10 @@ export function PricingBuilder({ planId, onPlanChange }: Props) {
       plan_name: plan.name,
       meals_per_day: meals,
       duration_days: days,
-      total_price: price,
+      total_price: total,
+      subtotal_price: price,
+      coupon_code: coupon?.code ?? "",
+      discount_amount: discount,
       meal_types: mealTypes,
       delivery_days: deliveryDays,
       neighborhood,
