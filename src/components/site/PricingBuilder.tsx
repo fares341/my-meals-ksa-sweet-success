@@ -423,11 +423,63 @@ export function PricingBuilder({ planId, onPlanChange }: Props) {
         <aside className="h-fit rounded-[2rem] bg-primary p-7 text-primary-foreground shadow-lift sm:p-9 lg:sticky lg:top-28">
           <p className="text-sm text-primary-foreground/70">إجمالي اشتراكك</p>
           <p className="mt-2 font-display text-5xl font-black text-accent">
-            {arabicNumber(price)}
+            {arabicNumber(total)}
             <span className="ms-2 font-sans text-lg font-medium text-primary-foreground/80">
               ريال
             </span>
           </p>
+          {discount > 0 ? (
+            <p className="mt-1 text-sm text-primary-foreground/60 line-through">
+              {arabicNumber(price)} ريال
+            </p>
+          ) : null}
+
+          <div className="mt-6 rounded-2xl bg-primary-foreground/10 p-4">
+            <Label htmlFor="promo" className="text-xs text-primary-foreground/80">
+              كود الخصم
+            </Label>
+            <div className="mt-2 flex gap-2">
+              <Input
+                id="promo"
+                value={couponInput}
+                onChange={(e) => setCouponInput(e.target.value)}
+                placeholder="أدخل الكود"
+                disabled={!!coupon}
+                className="h-11 rounded-xl border-primary-foreground/20 bg-primary-foreground/10 text-primary-foreground placeholder:text-primary-foreground/50"
+              />
+              {coupon ? (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={clearCoupon}
+                  className="h-11 rounded-xl font-display font-bold"
+                >
+                  <X className="size-4" />
+                  إزالة
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={applyCoupon}
+                  disabled={checkingCoupon}
+                  className="h-11 rounded-xl font-display font-bold"
+                >
+                  {checkingCoupon ? <Loader2 className="size-4 animate-spin" /> : null}
+                  تطبيق
+                </Button>
+              )}
+            </div>
+            {coupon ? (
+              <p className="mt-2 flex items-center gap-2 text-xs font-bold text-accent">
+                <CheckCircle2 className="size-4" />
+                تم تطبيق كود الخصم بنجاح!
+              </p>
+            ) : null}
+            {couponError ? (
+              <p className="mt-2 text-xs font-bold text-accent">{couponError}</p>
+            ) : null}
+          </div>
 
           <ul className="mt-7 space-y-3 text-sm">
             <Row label="الباقة" value={plan.name} />
@@ -436,6 +488,12 @@ export function PricingBuilder({ planId, onPlanChange }: Props) {
             <Row label="الحي" value={neighborhood} />
             <Row label="أيام التوصيل" value={`${arabicNumber(deliveryDays.length)} أيام`} />
             <Row label="الهدية المجانية" value={gift || "بدون هدية"} />
+            {discount > 0 ? (
+              <>
+                <Row label="قيمة الاشتراك" value={`${arabicNumber(price)} ريال`} />
+                <Row label="قيمة الخصم" value={`- ${arabicNumber(discount)} ريال`} />
+              </>
+            ) : null}
             <Row label="التكلفة اليومية" value={`${arabicNumber(perDay)} ريال`} />
           </ul>
 
