@@ -24,6 +24,10 @@ ALTER TABLE public.subscriptions
   ADD COLUMN coupon_code text,
   ADD COLUMN discount_amount numeric NOT NULL DEFAULT 0;
 
+-- إضافة الكوبونات الجديدة
 INSERT INTO public.coupons (code, discount_type, discount_value, is_active, usage_limit) VALUES
-  ('WELCOME10', 'percentage', 10, true, NULL),
-  ('TAIF50', 'fixed', 50, true, 100);
+  ('Ka5', 'percentage', 5, true, NULL),
+  ('Meals5', 'percentage', 5, true, NULL),
+  ('Meals10', 'percentage', 10, true, NULL),
+  ('Meals50', 'fixed', 50, true, NULL),
+  ('Meals100', 'fixed', 100, true, NULL);
