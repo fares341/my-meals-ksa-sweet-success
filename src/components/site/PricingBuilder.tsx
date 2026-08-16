@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { CreditCard } from "lucide-react";
+import { CheckCircle2, CreditCard, Loader2, X } from "lucide-react";
 import { z } from "zod";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -8,17 +8,23 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { arabicNumber, durations, getPrice, mealCounts, plans } from "@/lib/meals";
+import { validateCoupon, discountFor, type CouponResult } from "@/lib/coupons";
 import {
   addDays,
+  allowedWeeklyDays,
+  computeEndDate,
   freeGiftLabel,
+  isFriday,
   mealTypeOptions,
   isOutOfZone,
   neighborhoods,
+  nextDeliveryDate,
   saveDraft,
   slotsForNeighborhood,
   timeSlots,
   unavailableDeliveryDays,
   weekDays,
+  weeklyDaysHint,
 } from "@/lib/order";
 
 const detailsSchema = z.object({
@@ -58,12 +64,24 @@ export function PricingBuilder({ planId, onPlanChange }: Props) {
   const [startDate, setStartDate] = useState<string>(tomorrow());
   const [wantsSalad, setWantsSalad] = useState(true);
   const [form, setForm] = useState({ full_name: "", whatsapp: "", address: "" });
+  const [couponInput, setCouponInput] = useState("");
+  const [coupon, setCoupon] = useState<CouponResult | null>(null);
+  const [couponError, setCouponError] = useState<string | null>(null);
+  const [checkingCoupon, setCheckingCoupon] = useState(false);
 
   const plan = plans.find((p) => p.id === planId) ?? plans[0]!;
   const price = useMemo(() => getPrice(plan.id, meals, days), [plan.id, meals, days]);
-  const perDay = days > 0 ? Math.round(price / days) : 0;
-  const endDate = useMemo(() => addDays(startDate, Math.max(days - 1, 0)), [startDate, days]);
+  const discount = coupon ? discountFor(coupon.discount_type, coupon.discount_value, price) : 0;
+  const total = Math.max(price - discount, 0);
+  const perDay = days > 0 ? Math.round(total / days) : 0;
+  const endDate = useMemo(
+    () => computeEndDate(startDate, days, deliveryDays),
+    [startDate, days, deliveryDays],
+  );
   const gift = freeGiftLabel(meals, wantsSalad);
+  const allowedDays = allowedWeeklyDays(days);
+  const maxDays = Math.max(...allowedDays);
+  const daysRuleOk = allowedDays.includes(deliveryDays.length);
   const availableSlots = useMemo(
     () => timeSlots.filter((t) => slotsForNeighborhood(neighborhood).includes(t.id)),
     [neighborhood],
@@ -80,8 +98,54 @@ export function PricingBuilder({ planId, onPlanChange }: Props) {
     setMealTypes((prev) => (prev.length === meals ? prev : mealTypeOptions.slice(0, meals).map((m) => m.id)));
   }, [meals]);
 
+  // Keep the selected delivery days within the rules of the chosen duration.
+  useEffect(() => {
+    setDeliveryDays((prev) => (prev.length > maxDays ? prev.slice(0, maxDays) : prev));
+  }, [maxDays]);
+
+  // Fridays and unselected weekdays can't be a start date.
+  useEffect(() => {
+    setStartDate((prev) => {
+      const next = nextDeliveryDate(prev, deliveryDays);
+      return next && next !== prev ? next : prev;
+    });
+  }, [deliveryDays]);
+
   const toggle = (list: string[], value: string) =>
     list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
+
+  const toggleDeliveryDay = (id: string) => {
+    if (deliveryDays.includes(id)) {
+      setDeliveryDays(deliveryDays.filter((d) => d !== id));
+      return;
+    }
+    if (deliveryDays.length >= maxDays) {
+      toast.error(weeklyDaysHint(days));
+      return;
+    }
+    setDeliveryDays([...deliveryDays, id]);
+  };
+
+  const applyCoupon = async () => {
+    setCheckingCoupon(true);
+    setCouponError(null);
+    const res = await validateCoupon(couponInput, price);
+    setCheckingCoupon(false);
+    if (!res.ok) {
+      setCoupon(null);
+      setCouponError(res.error);
+      return;
+    }
+    setCoupon(res.coupon);
+    setCouponInput(res.coupon.code);
+    toast.success("تم تطبيق كود الخصم بنجاح!");
+  };
+
+  const clearCoupon = () => {
+    setCoupon(null);
+    setCouponInput("");
+    setCouponError(null);
+  };
 
   const proceed = () => {
     if (mealTypes.length !== meals) {
@@ -96,12 +160,16 @@ export function PricingBuilder({ planId, onPlanChange }: Props) {
       toast.error("اختر موعد التوصيل");
       return;
     }
-    if (deliveryDays.length === 0) {
-      toast.error("اختر أيام التوصيل");
+    if (!daysRuleOk) {
+      toast.error(weeklyDaysHint(days));
       return;
     }
     if (startDate < tomorrow()) {
       toast.error("تاريخ البداية يجب أن يكون من الغد على الأقل (لا يوجد حجز في نفس اليوم)");
+      return;
+    }
+    if (isFriday(startDate)) {
+      toast.error("لا يوجد توصيل يوم الجمعة، اختر تاريخ بداية آخر");
       return;
     }
     const parsed = detailsSchema.safeParse(form);
@@ -115,7 +183,10 @@ export function PricingBuilder({ planId, onPlanChange }: Props) {
       plan_name: plan.name,
       meals_per_day: meals,
       duration_days: days,
-      total_price: price,
+      total_price: total,
+      subtotal_price: price,
+      coupon_code: coupon?.code ?? "",
+      discount_amount: discount,
       meal_types: mealTypes,
       delivery_days: deliveryDays,
       neighborhood,
@@ -203,13 +274,20 @@ export function PricingBuilder({ planId, onPlanChange }: Props) {
                   key={d.id}
                   active={deliveryDays.includes(d.id)}
                   disabled={unavailableDeliveryDays.includes(d.id)}
-                  onClick={() => setDeliveryDays(toggle(deliveryDays, d.id))}
+                  onClick={() => toggleDeliveryDay(d.id)}
                 >
                   {d.label}
                 </Chip>
               ))}
             </div>
-            <p className="mt-3 text-xs text-muted-foreground">لا يوجد توصيل يوم الجمعة.</p>
+            <p className="mt-3 text-xs text-muted-foreground">
+              {weeklyDaysHint(days)} لا يوجد توصيل يوم الجمعة.
+            </p>
+            {!daysRuleOk ? (
+              <p className="mt-2 text-xs font-bold text-destructive">
+                عدد الأيام المختارة ({arabicNumber(deliveryDays.length)}) لا يطابق شرط الباقة.
+              </p>
+            ) : null}
           </Group>
 
           <Group title="الهدايا المجانية">
@@ -284,14 +362,21 @@ export function PricingBuilder({ planId, onPlanChange }: Props) {
                   min={tomorrow()}
                   onChange={(e) => {
                     const picked = e.target.value || tomorrow();
-                    // Guard against same-day / past dates even if typed manually.
-                    setStartDate(picked < tomorrow() ? tomorrow() : picked);
+                    // Guard against same-day / past dates, Fridays and unselected weekdays.
+                    const safe = picked < tomorrow() ? tomorrow() : picked;
+                    setStartDate(nextDeliveryDate(safe, deliveryDays));
                   }}
                 />
+                <p className="text-xs text-muted-foreground">
+                  يتم اختيار أول يوم توصيل متاح تلقائياً (بدون الجمعة).
+                </p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="end_date">تاريخ النهاية</Label>
                 <Input id="end_date" value={endDate} readOnly className="bg-muted" />
+                <p className="text-xs text-muted-foreground">
+                  محسوب تلقائياً على {arabicNumber(days)} يوم توصيل بحسب أيامك المختارة.
+                </p>
               </div>
             </div>
           </Group>
@@ -338,11 +423,63 @@ export function PricingBuilder({ planId, onPlanChange }: Props) {
         <aside className="h-fit rounded-[2rem] bg-primary p-7 text-primary-foreground shadow-lift sm:p-9 lg:sticky lg:top-28">
           <p className="text-sm text-primary-foreground/70">إجمالي اشتراكك</p>
           <p className="mt-2 font-display text-5xl font-black text-accent">
-            {arabicNumber(price)}
+            {arabicNumber(total)}
             <span className="ms-2 font-sans text-lg font-medium text-primary-foreground/80">
               ريال
             </span>
           </p>
+          {discount > 0 ? (
+            <p className="mt-1 text-sm text-primary-foreground/60 line-through">
+              {arabicNumber(price)} ريال
+            </p>
+          ) : null}
+
+          <div className="mt-6 rounded-2xl bg-primary-foreground/10 p-4">
+            <Label htmlFor="promo" className="text-xs text-primary-foreground/80">
+              كود الخصم
+            </Label>
+            <div className="mt-2 flex gap-2">
+              <Input
+                id="promo"
+                value={couponInput}
+                onChange={(e) => setCouponInput(e.target.value)}
+                placeholder="أدخل الكود"
+                disabled={!!coupon}
+                className="h-11 rounded-xl border-primary-foreground/20 bg-primary-foreground/10 text-primary-foreground placeholder:text-primary-foreground/50"
+              />
+              {coupon ? (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={clearCoupon}
+                  className="h-11 rounded-xl font-display font-bold"
+                >
+                  <X className="size-4" />
+                  إزالة
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={applyCoupon}
+                  disabled={checkingCoupon}
+                  className="h-11 rounded-xl font-display font-bold"
+                >
+                  {checkingCoupon ? <Loader2 className="size-4 animate-spin" /> : null}
+                  تطبيق
+                </Button>
+              )}
+            </div>
+            {coupon ? (
+              <p className="mt-2 flex items-center gap-2 text-xs font-bold text-accent">
+                <CheckCircle2 className="size-4" />
+                تم تطبيق كود الخصم بنجاح!
+              </p>
+            ) : null}
+            {couponError ? (
+              <p className="mt-2 text-xs font-bold text-accent">{couponError}</p>
+            ) : null}
+          </div>
 
           <ul className="mt-7 space-y-3 text-sm">
             <Row label="الباقة" value={plan.name} />
@@ -351,6 +488,12 @@ export function PricingBuilder({ planId, onPlanChange }: Props) {
             <Row label="الحي" value={neighborhood} />
             <Row label="أيام التوصيل" value={`${arabicNumber(deliveryDays.length)} أيام`} />
             <Row label="الهدية المجانية" value={gift || "بدون هدية"} />
+            {discount > 0 ? (
+              <>
+                <Row label="قيمة الاشتراك" value={`${arabicNumber(price)} ريال`} />
+                <Row label="قيمة الخصم" value={`- ${arabicNumber(discount)} ريال`} />
+              </>
+            ) : null}
             <Row label="التكلفة اليومية" value={`${arabicNumber(perDay)} ريال`} />
           </ul>
 

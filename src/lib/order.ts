@@ -94,6 +94,64 @@ export const weekDays = [
 // No delivery on Fridays.
 export const unavailableDeliveryDays: string[] = ["fri"];
 
+// Weekly delivery-day rules per subscription duration.
+export function allowedWeeklyDays(durationDays: number): number[] {
+  if (durationDays === 1) return [1];
+  if (durationDays === 24) return [5, 6];
+  return [5]; // 5-day and 20-day plans
+}
+
+export function weeklyDaysHint(durationDays: number) {
+  const allowed = allowedWeeklyDays(durationDays);
+  if (allowed.length === 1 && allowed[0] === 1) return "اختر يوم توصيل واحد فقط.";
+  if (allowed.length === 1) return `اختر ${allowed[0]} أيام توصيل في الأسبوع.`;
+  return `اختر ${allowed[0]} أو ${allowed[1]} أيام توصيل في الأسبوع.`;
+}
+
+const dayIndex: Record<string, number> = {
+  sun: 0,
+  mon: 1,
+  tue: 2,
+  wed: 3,
+  thu: 4,
+  fri: 5,
+  sat: 6,
+};
+
+// End date = the date of the Nth delivery, skipping unselected days and Fridays.
+export function computeEndDate(startDate: string, durationDays: number, deliveryDays: string[]) {
+  const wanted = new Set(
+    deliveryDays.filter((d) => !unavailableDeliveryDays.includes(d)).map((d) => dayIndex[d]),
+  );
+  if (!startDate || wanted.size === 0 || durationDays <= 0) return startDate;
+  const d = new Date(`${startDate}T00:00:00`);
+  let counted = 0;
+  for (let i = 0; i < durationDays * 7 + 14; i++) {
+    if (wanted.has(d.getDay())) {
+      counted++;
+      if (counted >= durationDays) break;
+    }
+    d.setDate(d.getDate() + 1);
+  }
+  return d.toISOString().slice(0, 10);
+}
+
+// The first valid delivery date on/after the given date.
+export function nextDeliveryDate(date: string, deliveryDays: string[]) {
+  const wanted = new Set(
+    deliveryDays.filter((d) => !unavailableDeliveryDays.includes(d)).map((d) => dayIndex[d]),
+  );
+  if (!date || wanted.size === 0) return date;
+  const d = new Date(`${date}T00:00:00`);
+  for (let i = 0; i < 14 && !wanted.has(d.getDay()); i++) d.setDate(d.getDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
+
+export function isFriday(date: string) {
+  if (!date) return false;
+  return new Date(`${date}T00:00:00`).getDay() === 5;
+}
+
 // Free gift depends on the number of daily meals; the salad can be opted out.
 export function freeGiftLabel(mealsPerDay: number, wantsSalad: boolean) {
   const gifts: string[] = [];
@@ -132,6 +190,9 @@ export type OrderDraft = {
   address: string;
   free_gift?: string;
   notes?: string;
+  coupon_code?: string;
+  discount_amount?: number;
+  subtotal_price?: number;
 };
 
 const KEY = "mymeals_order_draft";

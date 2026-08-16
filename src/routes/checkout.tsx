@@ -91,6 +91,8 @@ function CheckoutPage() {
       payment_method: method,
       payment_status: "pending",
       transaction_id,
+      coupon_code: draft.coupon_code || null,
+      discount_amount: draft.discount_amount ?? 0,
       notes: [draft.free_gift ? `هدية: ${draft.free_gift}` : null, isTabby ? "تقسيط تابي (٤ أقساط) + رسوم ٨٪" : null]
         .filter(Boolean)
         .join(" · ") || null,
@@ -270,6 +272,18 @@ function CheckoutPage() {
 
             <ul className="mt-6 space-y-3 text-sm">
               <Row label="الباقة" value={draft.plan_name} />
+              {draft.discount_amount ? (
+                <>
+                  <Row
+                    label="قيمة الاشتراك قبل الخصم"
+                    value={`${arabicNumber(draft.subtotal_price ?? baseTotal)} ريال`}
+                  />
+                  <Row
+                    label={`الخصم${draft.coupon_code ? ` (${draft.coupon_code})` : ""}`}
+                    value={`- ${arabicNumber(draft.discount_amount)} ريال`}
+                  />
+                </>
+              ) : null}
               {draft.free_gift ? <Row label="الهدية المجانية" value={draft.free_gift} /> : null}
               <Row label="الوجبات اليومية" value={arabicNumber(draft.meals_per_day)} />
               <Row
