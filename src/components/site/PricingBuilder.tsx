@@ -274,13 +274,20 @@ export function PricingBuilder({ planId, onPlanChange }: Props) {
                   key={d.id}
                   active={deliveryDays.includes(d.id)}
                   disabled={unavailableDeliveryDays.includes(d.id)}
-                  onClick={() => setDeliveryDays(toggle(deliveryDays, d.id))}
+                  onClick={() => toggleDeliveryDay(d.id)}
                 >
                   {d.label}
                 </Chip>
               ))}
             </div>
-            <p className="mt-3 text-xs text-muted-foreground">لا يوجد توصيل يوم الجمعة.</p>
+            <p className="mt-3 text-xs text-muted-foreground">
+              {weeklyDaysHint(days)} لا يوجد توصيل يوم الجمعة.
+            </p>
+            {!daysRuleOk ? (
+              <p className="mt-2 text-xs font-bold text-destructive">
+                عدد الأيام المختارة ({arabicNumber(deliveryDays.length)}) لا يطابق شرط الباقة.
+              </p>
+            ) : null}
           </Group>
 
           <Group title="الهدايا المجانية">
@@ -355,14 +362,21 @@ export function PricingBuilder({ planId, onPlanChange }: Props) {
                   min={tomorrow()}
                   onChange={(e) => {
                     const picked = e.target.value || tomorrow();
-                    // Guard against same-day / past dates even if typed manually.
-                    setStartDate(picked < tomorrow() ? tomorrow() : picked);
+                    // Guard against same-day / past dates, Fridays and unselected weekdays.
+                    const safe = picked < tomorrow() ? tomorrow() : picked;
+                    setStartDate(nextDeliveryDate(safe, deliveryDays));
                   }}
                 />
+                <p className="text-xs text-muted-foreground">
+                  يتم اختيار أول يوم توصيل متاح تلقائياً (بدون الجمعة).
+                </p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="end_date">تاريخ النهاية</Label>
                 <Input id="end_date" value={endDate} readOnly className="bg-muted" />
+                <p className="text-xs text-muted-foreground">
+                  محسوب تلقائياً على {arabicNumber(days)} يوم توصيل بحسب أيامك المختارة.
+                </p>
               </div>
             </div>
           </Group>
