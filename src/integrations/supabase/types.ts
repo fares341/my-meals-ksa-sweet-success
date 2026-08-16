@@ -14,12 +14,47 @@ export type Database = {
   }
   public: {
     Tables: {
+      coupons: {
+        Row: {
+          code: string
+          created_at: string
+          discount_type: string
+          discount_value: number
+          id: string
+          is_active: boolean
+          times_used: number
+          usage_limit: number | null
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          discount_type?: string
+          discount_value: number
+          id?: string
+          is_active?: boolean
+          times_used?: number
+          usage_limit?: number | null
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          discount_type?: string
+          discount_value?: number
+          id?: string
+          is_active?: boolean
+          times_used?: number
+          usage_limit?: number | null
+        }
+        Relationships: []
+      }
       subscriptions: {
         Row: {
           address: string
           city: string
+          coupon_code: string | null
           created_at: string
           delivery_days: string[]
+          discount_amount: number
           duration_days: number
           end_date: string | null
           full_name: string
@@ -41,8 +76,10 @@ export type Database = {
         Insert: {
           address: string
           city?: string
+          coupon_code?: string | null
           created_at?: string
           delivery_days?: string[]
+          discount_amount?: number
           duration_days: number
           end_date?: string | null
           full_name: string
@@ -64,8 +101,10 @@ export type Database = {
         Update: {
           address?: string
           city?: string
+          coupon_code?: string | null
           created_at?: string
           delivery_days?: string[]
+          discount_amount?: number
           duration_days?: number
           end_date?: string | null
           full_name?: string
