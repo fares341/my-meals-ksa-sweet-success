@@ -16,17 +16,40 @@ export function discountFor(
   return Math.min(Math.round(raw), total);
 }
 
+// Characters a coupon code is allowed to contain: any unicode letter or digit
+// plus a few safe separators. Everything else (notably `%`, `*`, `\` and `,`)
+// is rejected before it reaches PostgREST, where those characters would be
+// interpreted as LIKE wildcards / filter syntax instead of literal text.
+const CODE_SHAPE = /^[\p{L}\p{N}_.+-]{1,64}$/u;
+
+// `_` is still a single-character LIKE wildcard, so escape it. PostgreSQL's
+// LIKE/ILIKE uses backslash as the default escape character.
+function escapeLikeLiteral(value: string): string {
+  return value.replace(/[_]/g, "\\$&");
+}
+
+// Invisible characters that ride along when a code is copied out of WhatsApp or
+// an RTL document: LRM, RLM, ALM, zero-width space/non-joiner/joiner, BOM.
+const INVISIBLES = /[\u200B-\u200F\u061C\uFEFF]/g;
+
+export function normalizeCouponCode(input: string): string {
+  return input.replace(INVISIBLES, "").trim();
+}
+
 export async function validateCoupon(
   input: string,
   total: number,
 ): Promise<{ ok: true; coupon: CouponResult } | { ok: false; error: string }> {
-  const code = input.trim();
+  const code = normalizeCouponCode(input);
   if (!code) return { ok: false, error: "أدخل كود الخصم" };
+  if (!CODE_SHAPE.test(code)) return { ok: false, error: "كود الخصم غير صحيح أو غير مفعّل" };
 
+  // ILIKE against an escaped literal == exact match, ignoring case. The unique
+  // index on lower(code) guarantees at most one row can come back.
   const { data, error } = await supabase
     .from("coupons")
     .select("code, discount_type, discount_value, usage_limit, times_used")
-    .ilike("code", code)
+    .ilike("code", escapeLikeLiteral(code))
     .eq("is_active", true)
     .maybeSingle();
 
