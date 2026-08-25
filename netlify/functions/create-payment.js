@@ -60,16 +60,27 @@ export const handler = async (event) => {
 
     const secretKey = process.env.PAYMOB_SECRET_KEY;
     const publicKey = process.env.PAYMOB_PUBLIC_KEY;
-    const integrationId =
-      paymentMethod === "apple_pay"
-        ? process.env.PAYMOB_APPLE_PAY_INTEGRATION_ID
-        : process.env.PAYMOB_INTEGRATION_ID;
+    // Each payment method is a separate Paymob integration with its own ID.
+    // Tabby will NOT work through the card integration — Paymob decides which
+    // checkout to render from the integration ID sent here. First name in each
+    // list is the canonical env var; the rest are accepted aliases so a
+    // differently-named Netlify variable still resolves.
+    const INTEGRATION_ENV = {
+      apple_pay: ["PAYMOB_APPLE_PAY_INTEGRATION_ID"],
+      tabby: ["PAYMOB_TABBY_INTEGRATION_ID", "PAYMOB_TABBY_ID", "TABBY_INTEGRATION_ID"],
+      mada: ["PAYMOB_MADA_INTEGRATION_ID", "PAYMOB_INTEGRATION_ID"],
+      card: ["PAYMOB_INTEGRATION_ID"],
+    };
+
+    const candidates = INTEGRATION_ENV[paymentMethod] || INTEGRATION_ENV.card;
+    const integrationId = candidates.map((name) => process.env[name]).find(Boolean);
 
     if (!secretKey || !publicKey || !integrationId) {
       const missing = [
         !secretKey && "PAYMOB_SECRET_KEY",
         !publicKey && "PAYMOB_PUBLIC_KEY",
-        !integrationId && "PAYMOB_INTEGRATION_ID / PAYMOB_APPLE_PAY_INTEGRATION_ID",
+        !integrationId &&
+          `an integration ID for "${paymentMethod}" (looked for: ${candidates.join(", ")})`,
       ].filter(Boolean);
       return {
         statusCode: 500,
