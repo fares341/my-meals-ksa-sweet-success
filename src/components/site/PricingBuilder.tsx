@@ -36,6 +36,19 @@ const detailsSchema = z.object({
     .max(20, "رقم الواتساب غير صحيح")
     .regex(/^[0-9+\s-]+$/, "رقم الواتساب غير صحيح"),
   address: z.string().trim().max(500, "العنوان طويل جداً").optional(),
+  height_cm: z
+    .string()
+    .trim()
+    .max(5)
+    .refine((v) => !v || (Number(v) >= 80 && Number(v) <= 250), "الطول غير صحيح")
+    .optional(),
+  weight_kg: z
+    .string()
+    .trim()
+    .max(5)
+    .refine((v) => !v || (Number(v) >= 25 && Number(v) <= 350), "الوزن غير صحيح")
+    .optional(),
+  birth_date: z.string().trim().max(20).optional(),
 });
 
 type Props = {
@@ -63,7 +76,14 @@ export function PricingBuilder({ planId, onPlanChange }: Props) {
   const [timeSlot, setTimeSlot] = useState<string>(slotsForNeighborhood(neighborhoods[0] ?? "")[0] ?? "");
   const [startDate, setStartDate] = useState<string>(tomorrow());
   const [wantsSalad, setWantsSalad] = useState(true);
-  const [form, setForm] = useState({ full_name: "", whatsapp: "", address: "" });
+  const [form, setForm] = useState({
+    full_name: "",
+    whatsapp: "",
+    address: "",
+    height_cm: "",
+    weight_kg: "",
+    birth_date: "",
+  });
   const [couponInput, setCouponInput] = useState("");
   const [coupon, setCoupon] = useState<CouponResult | null>(null);
   const [couponError, setCouponError] = useState<string | null>(null);
@@ -196,6 +216,9 @@ export function PricingBuilder({ planId, onPlanChange }: Props) {
       full_name: parsed.data.full_name,
       whatsapp: parsed.data.whatsapp,
       address: parsed.data.address ?? "",
+      height_cm: parsed.data.height_cm ?? "",
+      weight_kg: parsed.data.weight_kg ?? "",
+      birth_date: parsed.data.birth_date ?? "",
       free_gift: gift,
     });
     navigate({ to: "/checkout" });
@@ -414,6 +437,43 @@ export function PricingBuilder({ planId, onPlanChange }: Props) {
                   onChange={(e) => setForm({ ...form, address: e.target.value })}
                   maxLength={500}
                   placeholder="الحي، الشارع، رقم المبنى، أقرب معلم"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="height_cm">الطول (سم)</Label>
+                <span className="ms-2 text-xs text-muted-foreground">(اختياري)</span>
+                <Input
+                  id="height_cm"
+                  inputMode="numeric"
+                  dir="ltr"
+                  value={form.height_cm}
+                  onChange={(e) => setForm({ ...form, height_cm: e.target.value })}
+                  maxLength={5}
+                  placeholder="170"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="weight_kg">الوزن (كجم)</Label>
+                <span className="ms-2 text-xs text-muted-foreground">(اختياري)</span>
+                <Input
+                  id="weight_kg"
+                  inputMode="numeric"
+                  dir="ltr"
+                  value={form.weight_kg}
+                  onChange={(e) => setForm({ ...form, weight_kg: e.target.value })}
+                  maxLength={5}
+                  placeholder="70"
+                />
+              </div>
+              <div className="space-y-2 sm:col-span-2">
+                <Label htmlFor="birth_date">تاريخ الميلاد</Label>
+                <span className="ms-2 text-xs text-muted-foreground">(اختياري)</span>
+                <Input
+                  id="birth_date"
+                  type="date"
+                  dir="ltr"
+                  value={form.birth_date}
+                  onChange={(e) => setForm({ ...form, birth_date: e.target.value })}
                 />
               </div>
             </div>

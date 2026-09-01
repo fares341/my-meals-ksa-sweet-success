@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.15"
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
@@ -50,6 +50,7 @@ export type Database = {
       subscriptions: {
         Row: {
           address: string
+          birth_date: string | null
           city: string
           coupon_code: string | null
           created_at: string
@@ -58,6 +59,7 @@ export type Database = {
           duration_days: number
           end_date: string | null
           full_name: string
+          height_cm: number | null
           id: string
           meal_types: string[]
           meals_per_day: number
@@ -71,10 +73,12 @@ export type Database = {
           time_slot: string | null
           total_price: number
           transaction_id: string | null
+          weight_kg: number | null
           whatsapp: string
         }
         Insert: {
           address: string
+          birth_date?: string | null
           city?: string
           coupon_code?: string | null
           created_at?: string
@@ -83,6 +87,7 @@ export type Database = {
           duration_days: number
           end_date?: string | null
           full_name: string
+          height_cm?: number | null
           id?: string
           meal_types?: string[]
           meals_per_day: number
@@ -96,10 +101,12 @@ export type Database = {
           time_slot?: string | null
           total_price: number
           transaction_id?: string | null
+          weight_kg?: number | null
           whatsapp: string
         }
         Update: {
           address?: string
+          birth_date?: string | null
           city?: string
           coupon_code?: string | null
           created_at?: string
@@ -108,6 +115,7 @@ export type Database = {
           duration_days?: number
           end_date?: string | null
           full_name?: string
+          height_cm?: number | null
           id?: string
           meal_types?: string[]
           meals_per_day?: number
@@ -121,6 +129,7 @@ export type Database = {
           time_slot?: string | null
           total_price?: number
           transaction_id?: string | null
+          weight_kg?: number | null
           whatsapp?: string
         }
         Relationships: []
