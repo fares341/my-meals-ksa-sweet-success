@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as FailedRouteImport } from './routes/failed'
 import { Route as SuccessRouteImport } from './routes/success'
+import { Route as ApiPublicCreatePaymentRouteImport } from './routes/api/public/create-payment'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -34,18 +35,25 @@ const SuccessRoute = SuccessRouteImport.update({
   path: '/success',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicCreatePaymentRoute = ApiPublicCreatePaymentRouteImport.update({
+  id: '/api/public/create-payment',
+  path: '/api/public/create-payment',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/checkout': typeof CheckoutRoute
   '/failed': typeof FailedRoute
   '/success': typeof SuccessRoute
+  '/api/public/create-payment': typeof ApiPublicCreatePaymentRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/checkout': typeof CheckoutRoute
   '/failed': typeof FailedRoute
   '/success': typeof SuccessRoute
+  '/api/public/create-payment': typeof ApiPublicCreatePaymentRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -53,13 +61,21 @@ export interface FileRoutesById {
   '/checkout': typeof CheckoutRoute
   '/failed': typeof FailedRoute
   '/success': typeof SuccessRoute
+  '/api/public/create-payment': typeof ApiPublicCreatePaymentRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/checkout' | '/failed' | '/success'
+  fullPaths:
+    '/' | '/checkout' | '/failed' | '/success' | '/api/public/create-payment'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/checkout' | '/failed' | '/success'
-  id: '__root__' | '/' | '/checkout' | '/failed' | '/success'
+  to: '/' | '/checkout' | '/failed' | '/success' | '/api/public/create-payment'
+  id:
+    | '__root__'
+    | '/'
+    | '/checkout'
+    | '/failed'
+    | '/success'
+    | '/api/public/create-payment'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -67,6 +83,7 @@ export interface RootRouteChildren {
   CheckoutRoute: typeof CheckoutRoute
   FailedRoute: typeof FailedRoute
   SuccessRoute: typeof SuccessRoute
+  ApiPublicCreatePaymentRoute: typeof ApiPublicCreatePaymentRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -99,6 +116,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SuccessRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/create-payment': {
+      id: '/api/public/create-payment'
+      path: '/api/public/create-payment'
+      fullPath: '/api/public/create-payment'
+      preLoaderRoute: typeof ApiPublicCreatePaymentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -107,6 +131,7 @@ const rootRouteChildren: RootRouteChildren = {
   CheckoutRoute: CheckoutRoute,
   FailedRoute: FailedRoute,
   SuccessRoute: SuccessRoute,
+  ApiPublicCreatePaymentRoute: ApiPublicCreatePaymentRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

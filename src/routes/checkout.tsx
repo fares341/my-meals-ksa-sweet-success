@@ -103,8 +103,10 @@ function CheckoutPage() {
 
     if (error) {
       setPaying(false);
-      setErrorMsg("تعذّر حفظ الطلب. تأكد من اتصالك بالإنترنت وحاول مرة أخرى.");
-      toast.error("تعذّر إتمام العملية، حاول مرة أخرى");
+      const detail = error.message || error.details || error.hint || JSON.stringify(error);
+      console.error("Supabase insert error:", error);
+      setErrorMsg(`تعذّر حفظ الطلب في قاعدة البيانات: ${detail}`);
+      toast.error(`تعذّر حفظ الطلب: ${detail}`);
       return;
     }
 
@@ -117,21 +119,33 @@ function CheckoutPage() {
     });
 
     try {
-      const res = await fetch("/.netlify/functions/create-payment", {
+      const paymentPayload = {
+        amount: amountDue,
+        paymentMethod: method,
+        transactionId: transaction_id,
+        customer: {
+          name: draft.full_name,
+          phone: draft.whatsapp,
+          address: draft.address,
+          city: "Taif",
+        },
+      };
+
+      let res = await fetch("/api/public/create-payment", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          amount: amountDue,
-          paymentMethod: method,
-          transactionId: transaction_id,
-          customer: {
-            name: draft.full_name,
-            phone: draft.whatsapp,
-            address: draft.address,
-            city: "Taif",
-          },
-        }),
+        body: JSON.stringify(paymentPayload),
       });
+
+      // If the internal API route is 404 (e.g. static hosting on Netlify where functions live on /.netlify/functions), fallback to Netlify function
+      if (res.status === 404) {
+        res = await fetch("/.netlify/functions/create-payment", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(paymentPayload),
+        });
+      }
+
       const data = (await res.json().catch(() => ({}))) as {
         checkoutUrl?: string;
         error?: string;
