@@ -62,6 +62,9 @@ async function sendOrderEmail(sub, status = "paid") {
         ${row("المدينة", sub.city)}
         ${row("الحي", sub.neighborhood)}
         ${row("العنوان", sub.address)}
+        ${row("الطول", sub.height_cm ? `${sub.height_cm} سم` : "")}
+        ${row("الوزن", sub.weight_kg ? `${sub.weight_kg} كجم` : "")}
+        ${row("تاريخ الميلاد", sub.birth_date)}
         ${row("الباقة", sub.plan_name)}
         ${row("الوجبات اليومية", sub.meals_per_day)}
         ${row("أنواع الوجبات", sub.meal_types)}
