@@ -76,7 +76,14 @@ export function PricingBuilder({ planId, onPlanChange }: Props) {
   const [timeSlot, setTimeSlot] = useState<string>(slotsForNeighborhood(neighborhoods[0] ?? "")[0] ?? "");
   const [startDate, setStartDate] = useState<string>(tomorrow());
   const [wantsSalad, setWantsSalad] = useState(true);
-  const [form, setForm] = useState({ full_name: "", whatsapp: "", address: "" });
+  const [form, setForm] = useState({
+    full_name: "",
+    whatsapp: "",
+    address: "",
+    height_cm: "",
+    weight_kg: "",
+    birth_date: "",
+  });
   const [couponInput, setCouponInput] = useState("");
   const [coupon, setCoupon] = useState<CouponResult | null>(null);
   const [couponError, setCouponError] = useState<string | null>(null);
