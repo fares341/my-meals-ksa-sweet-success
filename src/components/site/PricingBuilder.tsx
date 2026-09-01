@@ -439,6 +439,43 @@ export function PricingBuilder({ planId, onPlanChange }: Props) {
                   placeholder="الحي، الشارع، رقم المبنى، أقرب معلم"
                 />
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="height_cm">الطول (سم)</Label>
+                <span className="ms-2 text-xs text-muted-foreground">(اختياري)</span>
+                <Input
+                  id="height_cm"
+                  inputMode="numeric"
+                  dir="ltr"
+                  value={form.height_cm}
+                  onChange={(e) => setForm({ ...form, height_cm: e.target.value })}
+                  maxLength={5}
+                  placeholder="170"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="weight_kg">الوزن (كجم)</Label>
+                <span className="ms-2 text-xs text-muted-foreground">(اختياري)</span>
+                <Input
+                  id="weight_kg"
+                  inputMode="numeric"
+                  dir="ltr"
+                  value={form.weight_kg}
+                  onChange={(e) => setForm({ ...form, weight_kg: e.target.value })}
+                  maxLength={5}
+                  placeholder="70"
+                />
+              </div>
+              <div className="space-y-2 sm:col-span-2">
+                <Label htmlFor="birth_date">تاريخ الميلاد</Label>
+                <span className="ms-2 text-xs text-muted-foreground">(اختياري)</span>
+                <Input
+                  id="birth_date"
+                  type="date"
+                  dir="ltr"
+                  value={form.birth_date}
+                  onChange={(e) => setForm({ ...form, birth_date: e.target.value })}
+                />
+              </div>
             </div>
           </Group>
         </div>
