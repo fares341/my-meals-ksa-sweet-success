@@ -36,6 +36,19 @@ const detailsSchema = z.object({
     .max(20, "رقم الواتساب غير صحيح")
     .regex(/^[0-9+\s-]+$/, "رقم الواتساب غير صحيح"),
   address: z.string().trim().max(500, "العنوان طويل جداً").optional(),
+  height_cm: z
+    .string()
+    .trim()
+    .max(5)
+    .refine((v) => !v || (Number(v) >= 80 && Number(v) <= 250), "الطول غير صحيح")
+    .optional(),
+  weight_kg: z
+    .string()
+    .trim()
+    .max(5)
+    .refine((v) => !v || (Number(v) >= 25 && Number(v) <= 350), "الوزن غير صحيح")
+    .optional(),
+  birth_date: z.string().trim().max(20).optional(),
 });
 
 type Props = {

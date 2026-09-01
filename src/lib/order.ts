@@ -188,6 +188,9 @@ export type OrderDraft = {
   full_name: string;
   whatsapp: string;
   address: string;
+  height_cm?: string;
+  weight_kg?: string;
+  birth_date?: string;
   free_gift?: string;
   notes?: string;
   coupon_code?: string;
