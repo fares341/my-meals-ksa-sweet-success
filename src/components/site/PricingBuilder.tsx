@@ -216,6 +216,9 @@ export function PricingBuilder({ planId, onPlanChange }: Props) {
       full_name: parsed.data.full_name,
       whatsapp: parsed.data.whatsapp,
       address: parsed.data.address ?? "",
+      height_cm: parsed.data.height_cm ?? "",
+      weight_kg: parsed.data.weight_kg ?? "",
+      birth_date: parsed.data.birth_date ?? "",
       free_gift: gift,
     });
     navigate({ to: "/checkout" });
