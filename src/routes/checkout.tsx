@@ -72,7 +72,17 @@ function CheckoutPage() {
     setReturnedFailed(false);
     const transaction_id = makeTransactionId();
 
-    const { error } = await supabase.from("subscriptions").insert({
+    const extraDetails = [
+      draft.free_gift ? `هدية: ${draft.free_gift}` : null,
+      isTabby ? "تقسيط تابي (٤ أقساط) + رسوم ٨٪" : null,
+      draft.height_cm ? `الطول: ${draft.height_cm} سم` : null,
+      draft.weight_kg ? `الوزن: ${draft.weight_kg} كجم` : null,
+      draft.birth_date ? `تاريخ الميلاد: ${draft.birth_date}` : null,
+    ]
+      .filter(Boolean)
+      .join(" · ") || null;
+
+    let { error } = await supabase.from("subscriptions").insert({
       full_name: draft.full_name,
       whatsapp: draft.whatsapp,
       city: "الطائف",
@@ -100,6 +110,43 @@ function CheckoutPage() {
         .filter(Boolean)
         .join(" · ") || null,
     });
+
+    // If the database schema is missing the new columns (schema cache error), fallback to saving them inside notes
+    if (
+      error &&
+      (error.message?.includes("column") ||
+        error.message?.includes("schema cache") ||
+        error.code === "PGRST204")
+    ) {
+      console.warn(
+        "Retrying insert without optional body metric columns, saving into notes instead:",
+        error.message,
+      );
+      const fallbackInsert = await supabase.from("subscriptions").insert({
+        full_name: draft.full_name,
+        whatsapp: draft.whatsapp,
+        city: "الطائف",
+        address: draft.address,
+        neighborhood: draft.neighborhood,
+        time_slot: draft.time_slot,
+        delivery_days: draft.delivery_days,
+        meal_types: draft.meal_types,
+        start_date: draft.start_date,
+        end_date: draft.end_date,
+        plan_id: draft.plan_id,
+        plan_name: draft.plan_name,
+        meals_per_day: draft.meals_per_day,
+        duration_days: draft.duration_days,
+        total_price: amountDue,
+        payment_method: method,
+        payment_status: "pending",
+        transaction_id,
+        coupon_code: draft.coupon_code || null,
+        discount_amount: draft.discount_amount ?? 0,
+        notes: extraDetails,
+      });
+      error = fallbackInsert.error;
+    }
 
     if (error) {
       setPaying(false);
