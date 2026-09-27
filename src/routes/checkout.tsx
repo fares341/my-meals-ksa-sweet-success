@@ -4,6 +4,8 @@ import { AlertCircle, ArrowRight, CreditCard, Loader2, Lock, ShieldCheck } from 
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,6 +16,7 @@ import {
   mealTypeOptions,
   paymentMethods,
   readDraft,
+  saveDraft,
   saveReceipt,
   tabbyTotal,
   timeSlots,
@@ -49,13 +52,16 @@ function CheckoutPage() {
   const [paying, setPaying] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [returnedFailed, setReturnedFailed] = useState(false);
+  const [emailInput, setEmailInput] = useState("");
   const isTabby = method === "tabby";
   const baseTotal = draft?.total_price ?? 0;
   const tabbyFee = isTabby ? tabbyTotal(baseTotal) - baseTotal : 0;
   const amountDue = baseTotal + tabbyFee;
 
   useEffect(() => {
-    setDraft(readDraft());
+    const d = readDraft();
+    setDraft(d);
+    if (d?.email) setEmailInput(d.email);
     setReady(true);
     // If Paymob (or the callback) sent the customer back here after a cancelled/failed
     // payment, show a friendly retry banner instead of a blank page.
@@ -70,9 +76,22 @@ function CheckoutPage() {
     setPaying(true);
     setErrorMsg(null);
     setReturnedFailed(false);
+    const customerEmail = (draft.email || emailInput).trim();
+    if (!customerEmail || !customerEmail.includes("@")) {
+      setPaying(false);
+      setErrorMsg("يرجى إدخال بريد إلكتروني صحيح لإتمام الدفع.");
+      toast.error("البريد الإلكتروني مطلوب لإتمام الدفع");
+      return;
+    }
+    if (!draft.email && customerEmail) {
+      draft.email = customerEmail;
+      saveDraft(draft);
+    }
+
     const transaction_id = makeTransactionId();
 
     const extraDetails = [
+      draft.email ? `البريد: ${draft.email}` : null,
       draft.free_gift ? `هدية: ${draft.free_gift}` : null,
       isTabby ? "تقسيط تابي (٤ أقساط) + رسوم ٨٪" : null,
       draft.height_cm ? `الطول: ${draft.height_cm} سم` : null,
@@ -106,7 +125,11 @@ function CheckoutPage() {
       transaction_id,
       coupon_code: draft.coupon_code || null,
       discount_amount: draft.discount_amount ?? 0,
-      notes: [draft.free_gift ? `هدية: ${draft.free_gift}` : null, isTabby ? "تقسيط تابي (٤ أقساط) + رسوم ٨٪" : null]
+      notes: [
+        draft.email ? `البريد: ${draft.email}` : null,
+        draft.free_gift ? `هدية: ${draft.free_gift}` : null,
+        isTabby ? "تقسيط تابي (٤ أقساط) + رسوم ٨٪" : null,
+      ]
         .filter(Boolean)
         .join(" · ") || null,
     });
@@ -173,6 +196,7 @@ function CheckoutPage() {
         customer: {
           name: draft.full_name,
           phone: draft.whatsapp,
+          email: customerEmail,
           address: draft.address,
           city: "Taif",
         },
@@ -365,6 +389,7 @@ function CheckoutPage() {
               <Row label="إلى" value={draft.end_date} />
               <Row label="الاسم" value={draft.full_name} />
               <Row label="الجوال" value={draft.whatsapp} />
+              {draft.email ? <Row label="البريد الإلكتروني" value={draft.email} /> : null}
               {isTabby ? (
                 <>
                   <Row label="قيمة الاشتراك" value={`${arabicNumber(baseTotal)} ريال`} />
@@ -373,6 +398,26 @@ function CheckoutPage() {
                 </>
               ) : null}
             </ul>
+
+            {!draft.email && (
+              <div className="mt-6 rounded-2xl border border-primary/30 bg-primary/5 p-4 text-start">
+                <Label htmlFor="checkout-email" className="font-bold text-sm">
+                  البريد الإلكتروني (مطلوب لإصدار الفاتورة)
+                </Label>
+                <Input
+                  id="checkout-email"
+                  type="email"
+                  placeholder="name@example.com"
+                  dir="ltr"
+                  value={emailInput}
+                  onChange={(e) => setEmailInput(e.target.value)}
+                  className="mt-2 bg-background"
+                />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  مطلوب من بوابة الدفع Paymob لإصدار فاتورة الحجز وتأكيد الدفع.
+                </p>
+              </div>
+            )}
 
             <Button
               size="lg"

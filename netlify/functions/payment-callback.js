@@ -59,6 +59,7 @@ async function sendOrderEmail(sub, status = "paid") {
         ${row("رقم العملية", sub.transaction_id)}
         ${row("الاسم", sub.full_name)}
         ${row("الجوال / واتساب", sub.whatsapp)}
+        ${row("البريد الإلكتروني", sub.email || "")}
         ${row("المدينة", sub.city)}
         ${row("الحي", sub.neighborhood)}
         ${row("العنوان", sub.address)}
@@ -257,6 +258,7 @@ export const handler = async (event) => {
               transaction_id: String(ourTransactionId),
               full_name: getPath(txObj, "order.shipping_data.first_name") || "غير معروف",
               whatsapp: getPath(txObj, "order.shipping_data.phone_number") || "",
+              email: getPath(txObj, "order.shipping_data.email") || "",
               total_price: txObj.amount_cents ? Number(txObj.amount_cents) / 100 : "",
               payment_method: "Paymob",
               notes: "تحذير: تم استلام دفعة ناجحة بدون طلب مطابق في قاعدة البيانات.",
@@ -296,6 +298,7 @@ export const handler = async (event) => {
                 transaction_id: String(ourTransactionId),
                 full_name: getPath(txObj, "order.shipping_data.first_name") || "غير معروف",
                 whatsapp: getPath(txObj, "order.shipping_data.phone_number") || "",
+                email: getPath(txObj, "order.shipping_data.email") || "",
                 total_price: txObj.amount_cents ? Number(txObj.amount_cents) / 100 : "",
                 payment_method: "Paymob",
                 notes: "محاولة دفع فاشلة بدون طلب مطابق في قاعدة البيانات.",

@@ -35,6 +35,12 @@ const detailsSchema = z.object({
     .min(9, "رقم الواتساب غير صحيح")
     .max(20, "رقم الواتساب غير صحيح")
     .regex(/^[0-9+\s-]+$/, "رقم الواتساب غير صحيح"),
+  email: z
+    .string()
+    .trim()
+    .min(5, "يرجى إدخال البريد الإلكتروني")
+    .max(100, "البريد الإلكتروني طويل جداً")
+    .email("يرجى إدخال بريد إلكتروني صحيح"),
   address: z.string().trim().max(500, "العنوان طويل جداً").optional(),
   height_cm: z
     .string()
@@ -79,6 +85,7 @@ export function PricingBuilder({ planId, onPlanChange }: Props) {
   const [form, setForm] = useState({
     full_name: "",
     whatsapp: "",
+    email: "",
     address: "",
     height_cm: "",
     weight_kg: "",
@@ -215,6 +222,7 @@ export function PricingBuilder({ planId, onPlanChange }: Props) {
       end_date: endDate,
       full_name: parsed.data.full_name,
       whatsapp: parsed.data.whatsapp,
+      email: parsed.data.email,
       address: parsed.data.address ?? "",
       height_cm: parsed.data.height_cm ?? "",
       weight_kg: parsed.data.weight_kg ?? "",
@@ -426,6 +434,22 @@ export function PricingBuilder({ planId, onPlanChange }: Props) {
                   maxLength={20}
                   placeholder="05xxxxxxxx"
                 />
+              </div>
+              <div className="space-y-2 sm:col-span-2">
+                <Label htmlFor="email">البريد الإلكتروني</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  inputMode="email"
+                  dir="ltr"
+                  value={form.email}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  maxLength={100}
+                  placeholder="name@example.com"
+                />
+                <p className="text-xs text-muted-foreground">
+                  مطلوب لإصدار فاتورة الدفع وتأكيد الاشتراك عبر البريد.
+                </p>
               </div>
               <div className="space-y-2 sm:col-span-2">
                 <Label htmlFor="address">العنوان التفصيلي</Label>

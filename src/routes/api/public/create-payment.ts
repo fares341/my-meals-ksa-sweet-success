@@ -132,6 +132,32 @@ export const Route = createFileRoute("/api/public/create-payment")({
             );
           }
 
+          const customerEmail = String(customer.email || "").trim();
+          if (!customerEmail || !customerEmail.includes("@") || customerEmail.toLowerCase() === "customer@mymeals.sa") {
+            return new Response(
+              JSON.stringify({
+                error: "البريد الإلكتروني للعميل مطلوب وصحيح لإتمام عملية الدفع",
+              }),
+              {
+                status: 400,
+                headers,
+              },
+            );
+          }
+
+          const customerPhone = String(customer.phone || "").trim();
+          if (!customerPhone) {
+            return new Response(
+              JSON.stringify({
+                error: "رقم جوال العميل مطلوب لإتمام عملية الدفع",
+              }),
+              {
+                status: 400,
+                headers,
+              },
+            );
+          }
+
           const intention = await createIntention(
             {
               amount: amountCents,
@@ -140,8 +166,8 @@ export const Route = createFileRoute("/api/public/create-payment")({
               billing_data: {
                 first_name: nameParts[0] || "Customer",
                 last_name: nameParts.slice(1).join(" ") || "Customer",
-                phone_number: customer.phone || "+966500000000",
-                email: customer.email || "customer@mymeals.sa",
+                phone_number: customerPhone,
+                email: customerEmail,
                 street: customer.address || "NA",
                 building: "NA",
                 floor: "NA",

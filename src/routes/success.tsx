@@ -168,6 +168,7 @@ function SuccessPage() {
             {receipt ? <ReceiptRow label="تاريخ البداية" value={receipt.start_date} ltr /> : null}
             {receipt ? <ReceiptRow label="تاريخ النهاية" value={receipt.end_date} ltr /> : null}
             {receipt ? <ReceiptRow label="الجوال" value={receipt.whatsapp} ltr /> : null}
+            {receipt?.email ? <ReceiptRow label="البريد الإلكتروني" value={receipt.email} ltr /> : null}
             {receipt?.notes ? <ReceiptRow label="ملاحظات" value={receipt.notes} /> : null}
           </div>
 

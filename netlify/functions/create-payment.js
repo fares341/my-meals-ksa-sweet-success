@@ -109,6 +109,28 @@ export const handler = async (event) => {
       );
     }
 
+    const customerEmail = String(customer.email || "").trim();
+    if (!customerEmail || !customerEmail.includes("@") || customerEmail.toLowerCase() === "customer@mymeals.sa") {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({
+          error: "البريد الإلكتروني للعميل مطلوب وصحيح لإتمام عملية الدفع",
+        }),
+      };
+    }
+
+    const customerPhone = String(customer.phone || "").trim();
+    if (!customerPhone) {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({
+          error: "رقم جوال العميل مطلوب لإتمام عملية الدفع",
+        }),
+      };
+    }
+
     const intention = await createIntention(
       {
         amount: amountCents,
@@ -117,8 +139,8 @@ export const handler = async (event) => {
         billing_data: {
           first_name: nameParts[0] || "Customer",
           last_name: nameParts.slice(1).join(" ") || "Customer",
-          phone_number: customer.phone || "+966500000000",
-          email: customer.email || "customer@mymeals.sa",
+          phone_number: customerPhone,
+          email: customerEmail,
           street: customer.address || "NA",
           building: "NA",
           floor: "NA",
